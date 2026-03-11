@@ -1,38 +1,44 @@
-export interface ReportChoiceSnapshot {
-  no: number;
-  text: string;
-}
-
-export interface ReportQuestionReview {
-  questionId: string;
+export interface AttemptAnswerReview {
+  id: string;
   questionNo: number;
+  subjectName: string;
   stem: string;
-  imageUrl: string | null;
-  choices: ReportChoiceSnapshot[];
+  choices: Array<{ no: number; text: string }>;
   correctAnswer: number;
-  userAnswer: number | null;
+  selectedAnswer: number | null;
   isCorrect: boolean;
+  explanation: string;
+  imagePaths: string[];
 }
 
-export interface SubmissionReport {
+export interface AttemptSubjectSummary {
+  id: string;
+  subjectName: string;
+  score: number;
+  passed: boolean;
+}
+
+export interface AttemptReport {
   id: string;
   examId: string;
   examTitle: string;
+  certificationName: string;
   userName: string;
   birthDate: string;
   score: number;
+  passed: boolean;
   correctCount: number;
   totalQuestions: number;
-  reviews: ReportQuestionReview[];
-  answers: Record<string, number>;
-  createdAt: string;
+  submittedAt: string | null;
+  subjects: AttemptSubjectSummary[];
+  reviews: AttemptAnswerReview[];
 }
 
-export interface LookupSubmissionReportRow {
+export interface LookupAttemptRow {
   id: string;
   examTitle: string;
+  certificationName: string;
   score: number;
-  correctCount: number;
-  totalQuestions: number;
-  createdAt: string;
+  passed: boolean;
+  submittedAt: string | null;
 }

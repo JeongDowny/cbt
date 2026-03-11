@@ -39,33 +39,12 @@ function QuestionEditorCard({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, startUpload] = useTransition();
 
-  const choiceCount = watch(`questions.${index}.choiceCount`);
   const imagePath = watch(`questions.${index}.imagePath`);
 
   const { fields: choiceFields } = useFieldArray({
     control,
     name: `questions.${index}.choices`,
   });
-
-  const applyChoiceCount = (nextCount: 4 | 5) => {
-    const currentChoices = watch(`questions.${index}.choices`);
-
-    const normalizedChoices = Array.from({ length: nextCount }, (_, idx) => {
-      const choiceNo = (idx + 1) as 1 | 2 | 3 | 4 | 5;
-      return {
-        choiceNo,
-        content: currentChoices[idx]?.content ?? "",
-      };
-    });
-
-    setValue(`questions.${index}.choiceCount`, nextCount, { shouldDirty: true });
-    setValue(`questions.${index}.choices`, normalizedChoices, { shouldDirty: true });
-
-    const currentCorrect = watch(`questions.${index}.correctChoiceNo`);
-    if (currentCorrect > nextCount) {
-      setValue(`questions.${index}.correctChoiceNo`, 1, { shouldDirty: true });
-    }
-  };
 
   const uploadImage = () => {
     if (!file) {
@@ -100,29 +79,29 @@ function QuestionEditorCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor={`question-subject-${index}`}>과목명</Label>
+            <Input id={`question-subject-${index}`} {...register(`questions.${index}.subjectName`, { required: true })} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`question-subject-time-${index}`}>과목 제한시간(분)</Label>
+            <Input
+              id={`question-subject-time-${index}`}
+              type="number"
+              {...register(`questions.${index}.subjectTimeLimitMinutes`, { valueAsNumber: true, required: true })}
+            />
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor={`question-stem-${index}`}>문항 내용</Label>
           <Input id={`question-stem-${index}`} {...register(`questions.${index}.stem`, { required: true })} />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor={`question-choice-count-${index}`}>선택지 개수</Label>
-            <select
-              id={`question-choice-count-${index}`}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm"
-              value={choiceCount}
-              onChange={(event) => applyChoiceCount(Number(event.target.value) as 4 | 5)}
-            >
-              <option value={4}>4지선다</option>
-              <option value={5}>5지선다</option>
-            </select>
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor={`question-image-path-${index}`}>이미지 경로</Label>
-            <Input id={`question-image-path-${index}`} {...register(`questions.${index}.imagePath`)} />
-          </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor={`question-image-path-${index}`}>이미지 경로</Label>
+          <Input id={`question-image-path-${index}`} {...register(`questions.${index}.imagePath`)} />
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
@@ -145,8 +124,8 @@ function QuestionEditorCard({
 
         <div className="space-y-3">
           <p className="text-sm font-medium text-[var(--color-foreground)]">선택지 및 정답</p>
-          {choiceFields.slice(0, choiceCount).map((field, choiceIndex) => {
-            const choiceNo = (choiceIndex + 1) as 1 | 2 | 3 | 4 | 5;
+          {choiceFields.map((field, choiceIndex) => {
+            const choiceNo = (choiceIndex + 1) as 1 | 2 | 3 | 4;
             return (
               <div key={field.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
                 <span className="text-sm font-medium">{choiceNo}.</span>
@@ -161,7 +140,7 @@ function QuestionEditorCard({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor={`question-explanation-${index}`}>해설 (선택)</Label>
+          <Label htmlFor={`question-explanation-${index}`}>해설</Label>
           <Input id={`question-explanation-${index}`} {...register(`questions.${index}.explanation`)} />
         </div>
       </CardContent>
@@ -192,8 +171,9 @@ export function AdminExamEditorForm({ mode, examId, initialValues }: AdminExamEd
 
   const questionTemplate = useMemo(
     () => ({
+      subjectName: "전기자기학",
+      subjectTimeLimitMinutes: 30,
       stem: "",
-      choiceCount: 4 as const,
       correctChoiceNo: 1 as const,
       imagePath: null,
       explanation: "",
@@ -226,17 +206,12 @@ export function AdminExamEditorForm({ mode, examId, initialValues }: AdminExamEd
       <Card>
         <CardHeader>
           <CardTitle>{mode === "create" ? "시험 생성" : "시험 수정"}</CardTitle>
-          <CardDescription>필수 메타데이터를 입력하고 문항을 관리하세요.</CardDescription>
+          <CardDescription>시험 기본 정보를 입력하세요.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="certificationName">자격명</Label>
             <Input id="certificationName" {...register("certificationName", { required: true })} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="title">시험 제목</Label>
-            <Input id="title" {...register("title", { required: true })} />
           </div>
 
           <div className="space-y-2">
@@ -250,19 +225,17 @@ export function AdminExamEditorForm({ mode, examId, initialValues }: AdminExamEd
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="defaultTimeLimitMinutes">기본 제한시간(분)</Label>
-            <Input
-              id="defaultTimeLimitMinutes"
-              type="number"
-              {...register("defaultTimeLimitMinutes", {
-                setValueAs: (value: string) => (value === "" ? null : Number(value)),
-              })}
-            />
+            <Label htmlFor="status">상태</Label>
+            <select id="status" className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm" {...register("status", { required: true })}>
+              <option value="draft">draft</option>
+              <option value="published">published</option>
+              <option value="archived">archived</option>
+            </select>
           </div>
 
           <div className="flex items-center gap-2 md:pt-8">
-            <input id="isPublished" type="checkbox" className="h-4 w-4" {...register("isPublished")} />
-            <Label htmlFor="isPublished">공개 상태</Label>
+            <input id="isPublic" type="checkbox" className="h-4 w-4" {...register("isPublic")} />
+            <Label htmlFor="isPublic">공개 여부</Label>
           </div>
         </CardContent>
       </Card>

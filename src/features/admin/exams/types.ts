@@ -1,12 +1,15 @@
+export type ExamStatus = "draft" | "published" | "archived";
+
 export type QuestionChoiceForm = {
-  choiceNo: 1 | 2 | 3 | 4 | 5;
+  choiceNo: 1 | 2 | 3 | 4;
   content: string;
 };
 
 export type QuestionForm = {
+  subjectName: string;
+  subjectTimeLimitMinutes: number;
   stem: string;
-  choiceCount: 4 | 5;
-  correctChoiceNo: 1 | 2 | 3 | 4 | 5;
+  correctChoiceNo: 1 | 2 | 3 | 4;
   imagePath: string | null;
   explanation: string;
   choices: QuestionChoiceForm[];
@@ -14,11 +17,10 @@ export type QuestionForm = {
 
 export type AdminExamFormValues = {
   certificationName: string;
-  title: string;
   examYear: number;
   examRound: number;
-  defaultTimeLimitMinutes: number | null;
-  isPublished: boolean;
+  status: ExamStatus;
+  isPublic: boolean;
   questions: QuestionForm[];
 };
 

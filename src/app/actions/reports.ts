@@ -2,7 +2,8 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-import type { LookupSubmissionReportRow, ReportQuestionReview, SubmissionReport } from "@/features/reports/types";
+import type { AttemptAnswerReview, AttemptReport, LookupAttemptRow } from "@/features/reports/types";
+import type { Database } from "@/types/database";
 
 function createAdminClient() {
   const url = process.env.SUPABASE_URL;
@@ -12,158 +13,32 @@ function createAdminClient() {
     throw new Error("Supabase 서버 설정이 누락되었습니다.");
   }
 
-  return createClient(url, key, {
+  return createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
-interface LegacyQuestionRow {
-  id: string;
-  question_no: number;
-  stem: string;
-  image_url: string | null;
-  correct_answer: number;
-  choice_1: string;
-  choice_2: string;
-  choice_3: string;
-  choice_4: string;
-}
-
-interface NextQuestionRow {
-  id: string;
-  question_no: number;
-  stem: string;
-  image_path: string | null;
-}
-
-interface NextChoiceRow {
-  question_id: string;
-  choice_no: number;
-  content: string;
-  is_correct: boolean;
-}
-
-function toImageUrl(pathOrUrl: string | null): string | null {
-  if (!pathOrUrl) {
-    return null;
-  }
-
-  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
-    return pathOrUrl;
+function toPublicImageUrl(path: string): string {
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
   }
 
   const url = process.env.SUPABASE_URL;
   if (!url) {
-    return pathOrUrl;
+    return path;
   }
 
-  const normalized = pathOrUrl.replace(/^\/+/, "");
+  const normalized = path.replace(/^\/+/, "");
   return `${url}/storage/v1/object/public/question-images/${normalized}`;
 }
 
-function orderedQuestionIds(questionIds: string[]) {
-  const seen = new Set<string>();
-  const list: string[] = [];
-
-  for (const id of questionIds) {
-    if (!id || seen.has(id)) {
-      continue;
-    }
-    seen.add(id);
-    list.push(id);
-  }
-
-  return list;
-}
-
-async function fetchReviewRows(questionIds: string[]): Promise<
-  Array<{
-    questionId: string;
-    questionNo: number;
-    stem: string;
-    imageUrl: string | null;
-    choices: Array<{ no: number; text: string }>;
-    correctAnswer: number;
-  }>
-> {
-  const supabase = createAdminClient();
-  const ids = orderedQuestionIds(questionIds);
-
-  if (ids.length === 0) {
-    return [];
-  }
-
-  const { data: nextQuestions, error: nextQuestionError } = await supabase
-    .from("questions")
-    .select("id, question_no, stem, image_path")
-    .in("id", ids);
-
-  if (!nextQuestionError && (nextQuestions ?? []).length > 0) {
-    const typedQuestions = (nextQuestions ?? []) as NextQuestionRow[];
-
-    const { data: nextChoices, error: nextChoiceError } = await supabase
-      .from("choices")
-      .select("question_id, choice_no, content, is_correct")
-      .in(
-        "question_id",
-        typedQuestions.map((question) => question.id)
-      )
-      .order("choice_no", { ascending: true });
-
-    if (!nextChoiceError) {
-      const typedChoices = (nextChoices ?? []) as NextChoiceRow[];
-
-      const mapped = typedQuestions.map((question) => {
-        const related = typedChoices.filter((choice) => choice.question_id === question.id);
-        const correct = related.find((choice) => choice.is_correct);
-
-        return {
-          questionId: question.id,
-          questionNo: question.question_no,
-          stem: question.stem,
-          imageUrl: toImageUrl(question.image_path),
-          choices: related.map((choice) => ({ no: choice.choice_no, text: choice.content })),
-          correctAnswer: correct?.choice_no ?? 1,
-        };
-      });
-
-      const map = new Map(mapped.map((row) => [row.questionId, row]));
-      return ids.map((id) => map.get(id)).filter((row): row is NonNullable<typeof row> => Boolean(row));
-    }
-  }
-
-  const { data: legacyQuestions, error: legacyError } = await supabase
-    .from("questions")
-    .select("id, question_no, stem, image_url, correct_answer, choice_1, choice_2, choice_3, choice_4")
-    .in("id", ids);
-
-  if (legacyError) {
-    throw new Error(legacyError.message);
-  }
-
-  const mappedLegacy = ((legacyQuestions ?? []) as LegacyQuestionRow[]).map((question) => ({
-    questionId: question.id,
-    questionNo: question.question_no,
-    stem: question.stem,
-    imageUrl: toImageUrl(question.image_url),
-    choices: [question.choice_1, question.choice_2, question.choice_3, question.choice_4].map((text, idx) => ({
-      no: idx + 1,
-      text,
-    })),
-    correctAnswer: question.correct_answer,
-  }));
-
-  const map = new Map(mappedLegacy.map((row) => [row.questionId, row]));
-  return ids.map((id) => map.get(id)).filter((row): row is NonNullable<typeof row> => Boolean(row));
-}
-
-export async function submitReportAction(input: {
+export async function submitAttemptAction(input: {
   examId: string;
   userName: string;
   birthDate: string;
   answers: Record<string, number>;
   questionIds: string[];
-}): Promise<{ reportId: string }> {
+}): Promise<{ attemptId: string }> {
   const userName = input.userName.trim();
   const birthDate = input.birthDate.trim();
 
@@ -172,97 +47,218 @@ export async function submitReportAction(input: {
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
-    throw new Error("생년월일은 YYYY-MM-DD 형식으로 입력해 주세요.");
+    throw new Error("생년월일 형식을 확인해 주세요.");
   }
 
-  const questionIds = orderedQuestionIds(input.questionIds);
+  const questionIds = Array.from(new Set(input.questionIds));
   if (questionIds.length === 0) {
-    throw new Error("채점할 문항이 없습니다.");
+    throw new Error("제출할 문항이 없습니다.");
   }
-
-  const reviewBaseRows = await fetchReviewRows(questionIds);
-  const reviews: ReportQuestionReview[] = reviewBaseRows.map((row) => {
-    const userAnswer = input.answers[row.questionId] ?? null;
-    const isCorrect = userAnswer !== null && userAnswer === row.correctAnswer;
-
-    return {
-      questionId: row.questionId,
-      questionNo: row.questionNo,
-      stem: row.stem,
-      imageUrl: row.imageUrl,
-      choices: row.choices,
-      correctAnswer: row.correctAnswer,
-      userAnswer,
-      isCorrect,
-    };
-  });
-
-  const totalQuestions = reviews.length;
-  const correctCount = reviews.filter((review) => review.isCorrect).length;
-  const score = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 10000) / 100 : 0;
 
   const supabase = createAdminClient();
-  const { data: exam } = await supabase.from("exams").select("title").eq("id", input.examId).maybeSingle();
 
-  const { data, error } = await supabase
-    .from("submission_reports")
+  const { data: exam } = await supabase.from("exams").select("id").eq("id", input.examId).maybeSingle();
+  if (!exam) {
+    throw new Error("시험 정보를 찾을 수 없습니다.");
+  }
+
+  const { data: questions, error: questionError } = await supabase
+    .from("questions")
+    .select("id, exam_subject_id, question_no, stem, choice_1, choice_2, choice_3, choice_4, correct_answer, explanation")
+    .in("id", questionIds);
+
+  if (questionError) {
+    throw new Error(questionError.message);
+  }
+
+  const typedQuestions = questions ?? [];
+  if (typedQuestions.length === 0) {
+    throw new Error("문항 정보를 찾을 수 없습니다.");
+  }
+
+  const subjectIds = Array.from(new Set(typedQuestions.map((question) => question.exam_subject_id)));
+  const { data: subjects, error: subjectError } = await supabase
+    .from("exam_subjects")
+    .select("id, exam_id, name")
+    .in("id", subjectIds);
+
+  if (subjectError) {
+    throw new Error(subjectError.message);
+  }
+
+  const subjectMap = new Map((subjects ?? []).map((subject) => [subject.id, subject]));
+
+  for (const question of typedQuestions) {
+    const subject = subjectMap.get(question.exam_subject_id);
+    if (!subject || subject.exam_id !== input.examId) {
+      throw new Error("시험/과목/문항 관계가 올바르지 않습니다.");
+    }
+  }
+
+  const { data: attempt, error: attemptError } = await supabase
+    .from("attempts")
     .insert({
       exam_id: input.examId,
-      exam_title: String(exam?.title ?? "CBT 시험"),
       user_name: userName,
       birth_date: birthDate,
-      score,
-      correct_count: correctCount,
-      total_questions: totalQuestions,
-      answers: input.answers,
-      reviews,
+      status: "in_progress",
     })
     .select("id")
     .single();
 
-  if (error || !data) {
-    throw new Error(error?.message ?? "결과 저장에 실패했습니다.");
+  if (attemptError || !attempt) {
+    throw new Error(attemptError?.message ?? "응시 생성에 실패했습니다.");
   }
 
-  return { reportId: data.id as string };
+  const attemptId = attempt.id;
+
+  const { data: insertedSubjects, error: attemptSubjectsError } = await supabase
+    .from("attempt_subjects")
+    .insert(
+      subjectIds.map((subjectId) => ({
+        attempt_id: attemptId,
+        exam_subject_id: subjectId,
+        subject_name_snapshot: subjectMap.get(subjectId)?.name ?? "미분류",
+      }))
+    )
+    .select("id, exam_subject_id");
+
+  if (attemptSubjectsError) {
+    throw new Error(attemptSubjectsError.message);
+  }
+
+  const attemptSubjectMap = new Map((insertedSubjects ?? []).map((item) => [item.exam_subject_id, item.id]));
+
+  const { data: images } = await supabase
+    .from("question_images")
+    .select("question_id, image_order, image_path")
+    .in("question_id", typedQuestions.map((question) => question.id))
+    .order("image_order", { ascending: true });
+
+  const answersPayload = typedQuestions.map((question) => ({
+    attempt_subject_id: attemptSubjectMap.get(question.exam_subject_id) as string,
+    question_id: question.id,
+    question_no: question.question_no,
+    subject_name_snapshot: subjectMap.get(question.exam_subject_id)?.name ?? "미분류",
+    stem_snapshot: question.stem,
+    choice_1_snapshot: question.choice_1,
+    choice_2_snapshot: question.choice_2,
+    choice_3_snapshot: question.choice_3,
+    choice_4_snapshot: question.choice_4,
+    correct_answer_snapshot: question.correct_answer,
+    explanation_snapshot: question.explanation,
+    image_paths_snapshot: (images ?? [])
+      .filter((image) => image.question_id === question.id)
+      .map((image) => image.image_path),
+    selected_answer: input.answers[question.id] ?? null,
+    answered_at: input.answers[question.id] ? new Date().toISOString() : null,
+  }));
+
+  const { error: answerError } = await supabase.from("attempt_answers").insert(answersPayload);
+  if (answerError) {
+    throw new Error(answerError.message);
+  }
+
+  const { error: finalizeError } = await supabase.rpc("finalize_attempt", {
+    p_attempt_id: attemptId,
+  });
+
+  if (finalizeError) {
+    throw new Error(finalizeError.message);
+  }
+
+  return { attemptId };
 }
 
-export async function getSubmissionReportAction(reportId: string): Promise<SubmissionReport | null> {
+export async function getAttemptReportAction(attemptId: string): Promise<AttemptReport | null> {
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
-    .from("submission_reports")
-    .select("id, exam_id, exam_title, user_name, birth_date, score, correct_count, total_questions, answers, reviews, created_at")
-    .eq("id", reportId)
+  const { data: attempt, error: attemptError } = await supabase
+    .from("attempts")
+    .select("id, exam_id, user_name, birth_date, total_score, passed, submitted_at")
+    .eq("id", attemptId)
     .maybeSingle();
 
-  if (error) {
-    throw new Error(error.message);
+  if (attemptError) {
+    throw new Error(attemptError.message);
   }
 
-  if (!data) {
+  if (!attempt) {
     return null;
   }
 
+  const { data: exam } = await supabase
+    .from("exams")
+    .select("id, title, certifications(name)")
+    .eq("id", attempt.exam_id)
+    .maybeSingle();
+
+  const certification = exam
+    ? Array.isArray(exam.certifications)
+      ? exam.certifications[0]
+      : exam.certifications
+    : null;
+
+  const { data: subjects } = await supabase
+    .from("attempt_subjects")
+    .select("id, subject_name_snapshot, score, passed")
+    .eq("attempt_id", attemptId)
+    .order("created_at", { ascending: true });
+
+  const { data: answers } = await supabase
+    .from("attempt_answers")
+    .select(
+      "id, question_no, subject_name_snapshot, stem_snapshot, choice_1_snapshot, choice_2_snapshot, choice_3_snapshot, choice_4_snapshot, correct_answer_snapshot, selected_answer, is_correct, explanation_snapshot, image_paths_snapshot"
+    )
+    .in("attempt_subject_id", (subjects ?? []).map((subject) => subject.id))
+    .order("question_no", { ascending: true });
+
+  const reviews: AttemptAnswerReview[] = (answers ?? []).map((answer) => ({
+    id: answer.id,
+    questionNo: answer.question_no,
+    subjectName: answer.subject_name_snapshot,
+    stem: answer.stem_snapshot,
+    choices: [
+      { no: 1, text: answer.choice_1_snapshot },
+      { no: 2, text: answer.choice_2_snapshot },
+      { no: 3, text: answer.choice_3_snapshot },
+      { no: 4, text: answer.choice_4_snapshot },
+    ],
+    correctAnswer: answer.correct_answer_snapshot,
+    selectedAnswer: answer.selected_answer,
+    isCorrect: answer.is_correct,
+    explanation: answer.explanation_snapshot,
+    imagePaths: ((answer.image_paths_snapshot as string[] | null) ?? []).map((path) => toPublicImageUrl(path)),
+  }));
+
+  const correctCount = reviews.filter((review) => review.isCorrect).length;
+
   return {
-    id: data.id,
-    examId: data.exam_id,
-    examTitle: data.exam_title,
-    userName: data.user_name,
-    birthDate: data.birth_date,
-    score: Number(data.score),
-    correctCount: data.correct_count,
-    totalQuestions: data.total_questions,
-    answers: (data.answers ?? {}) as Record<string, number>,
-    reviews: (data.reviews ?? []) as ReportQuestionReview[],
-    createdAt: data.created_at,
+    id: attempt.id,
+    examId: attempt.exam_id,
+    examTitle: exam?.title ?? "시험",
+    certificationName: certification?.name ?? "자격",
+    userName: attempt.user_name,
+    birthDate: attempt.birth_date,
+    score: Number(attempt.total_score),
+    passed: attempt.passed,
+    correctCount,
+    totalQuestions: reviews.length,
+    submittedAt: attempt.submitted_at,
+    subjects: (subjects ?? []).map((subject) => ({
+      id: subject.id,
+      subjectName: subject.subject_name_snapshot,
+      score: Number(subject.score),
+      passed: subject.passed,
+    })),
+    reviews,
   };
 }
 
-export async function lookupSubmissionReportsAction(input: {
+export async function lookupAttemptsAction(input: {
   userName: string;
   birthDate: string;
-}): Promise<LookupSubmissionReportRow[]> {
+}): Promise<LookupAttemptRow[]> {
   const userName = input.userName.trim();
   const birthDate = input.birthDate.trim();
 
@@ -276,23 +272,42 @@ export async function lookupSubmissionReportsAction(input: {
 
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
-    .from("submission_reports")
-    .select("id, exam_title, score, correct_count, total_questions, created_at")
+  const { data: attempts, error } = await supabase
+    .from("attempts")
+    .select("id, exam_id, total_score, passed, submitted_at")
     .eq("user_name", userName)
     .eq("birth_date", birthDate)
+    .eq("status", "submitted")
     .order("created_at", { ascending: false });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    examTitle: row.exam_title,
-    score: Number(row.score),
-    correctCount: row.correct_count,
-    totalQuestions: row.total_questions,
-    createdAt: row.created_at,
+  const examIds = Array.from(new Set((attempts ?? []).map((attempt) => attempt.exam_id)));
+  const { data: exams } = examIds.length
+    ? await supabase
+        .from("exams")
+        .select("id, title, certifications(name)")
+        .in("id", examIds)
+    : { data: [] };
+
+  const examMap = new Map(
+    (exams ?? []).map((exam) => [
+      exam.id,
+      {
+        title: exam.title,
+        certification: Array.isArray(exam.certifications) ? exam.certifications[0]?.name : exam.certifications?.name,
+      },
+    ])
+  );
+
+  return (attempts ?? []).map((attempt) => ({
+    id: attempt.id,
+    examTitle: examMap.get(attempt.exam_id)?.title ?? "시험",
+    certificationName: examMap.get(attempt.exam_id)?.certification ?? "자격",
+    score: Number(attempt.total_score),
+    passed: attempt.passed,
+    submittedAt: attempt.submitted_at,
   }));
 }

@@ -1,130 +1,20 @@
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import type { SolveQuestion } from "@/features/exams/types";
 
-interface LegacyQuestionRow {
+interface ExamSubjectRow {
   id: string;
-  question_no: number;
-  stem: string;
-  image_url: string | null;
-  choice_1: string;
-  choice_2: string;
-  choice_3: string;
-  choice_4: string;
-  choice_5?: string | null;
+  subject_order: number;
+  name: string;
 }
 
-interface NextQuestionRow {
-  id: string;
-  question_no: number;
-  stem: string;
-  image_path: string | null;
-  choice_count: number;
-}
-
-interface ChoiceRow {
-  question_id: string;
-  choice_no: number;
-  content: string;
-}
-
-function resolveImageUrl(imagePath: string | null): string | null {
-  if (!imagePath) {
-    return null;
-  }
-
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-    return imagePath;
+function toImageUrl(pathOrUrl: string): string {
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+    return pathOrUrl;
   }
 
   const supabase = createSupabasePublicClient();
-  const { data } = supabase.storage.from("question-images").getPublicUrl(imagePath);
+  const { data } = supabase.storage.from("question-images").getPublicUrl(pathOrUrl);
   return data.publicUrl;
-}
-
-async function fetchQuestionsFromNextSchema(examId: string): Promise<SolveQuestion[] | null> {
-  const supabase = createSupabasePublicClient();
-
-  const { data: questions, error: questionError } = await supabase
-    .from("questions")
-    .select("id, question_no, stem, image_path, choice_count")
-    .eq("exam_id", examId)
-    .order("question_no", { ascending: true });
-
-  if (questionError) {
-    return null;
-  }
-
-  const typedQuestions = (questions ?? []) as NextQuestionRow[];
-  if (typedQuestions.length === 0) {
-    return [];
-  }
-
-  const questionIds = typedQuestions.map((question) => question.id);
-  const { data: choices, error: choiceError } = await supabase
-    .from("choices")
-    .select("question_id, choice_no, content")
-    .in("question_id", questionIds)
-    .order("choice_no", { ascending: true });
-
-  if (choiceError) {
-    return null;
-  }
-
-  const typedChoices = (choices ?? []) as ChoiceRow[];
-
-  return typedQuestions.map((question) => {
-    const choicesForQuestion = typedChoices
-      .filter((choice) => choice.question_id === question.id)
-      .filter((choice) => choice.choice_no >= 1 && choice.choice_no <= question.choice_count)
-      .sort((a, b) => a.choice_no - b.choice_no)
-      .map((choice) => ({
-        no: choice.choice_no,
-        text: choice.content,
-      }));
-
-    return {
-      id: question.id,
-      questionNo: question.question_no,
-      stem: question.stem,
-      imageUrl: resolveImageUrl(question.image_path),
-      choices: choicesForQuestion,
-    };
-  });
-}
-
-async function fetchQuestionsFromLegacySchema(examId: string): Promise<SolveQuestion[]> {
-  const supabase = createSupabasePublicClient();
-
-  const { data: questions, error } = await supabase
-    .from("questions")
-    .select("id, question_no, stem, image_url, choice_1, choice_2, choice_3, choice_4")
-    .eq("exam_id", examId)
-    .order("question_no", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return ((questions ?? []) as LegacyQuestionRow[]).map((question) => {
-    const choices = [question.choice_1, question.choice_2, question.choice_3, question.choice_4]
-      .map((text, idx) => ({
-        no: idx + 1,
-        text,
-      }))
-      .filter((choice) => choice.text && choice.text.trim().length > 0);
-
-    if (question.choice_5 && question.choice_5.trim().length > 0) {
-      choices.push({ no: 5, text: question.choice_5 });
-    }
-
-    return {
-      id: question.id,
-      questionNo: question.question_no,
-      stem: question.stem,
-      imageUrl: question.image_url,
-      choices,
-    };
-  });
 }
 
 export async function fetchSolveData(examId: string): Promise<{ examTitle: string; questions: SolveQuestion[] }> {
@@ -132,7 +22,7 @@ export async function fetchSolveData(examId: string): Promise<{ examTitle: strin
 
   const { data: exam, error: examError } = await supabase
     .from("exams")
-    .select("id, title")
+    .select("id, title, is_public, status")
     .eq("id", examId)
     .single();
 
@@ -140,11 +30,83 @@ export async function fetchSolveData(examId: string): Promise<{ examTitle: strin
     throw new Error(examError?.message ?? "시험 정보를 찾을 수 없습니다.");
   }
 
-  const nextQuestions = await fetchQuestionsFromNextSchema(examId);
-  const questions = nextQuestions ?? (await fetchQuestionsFromLegacySchema(examId));
+  if (!exam.is_public || exam.status !== "published") {
+    throw new Error("공개된 시험만 응시할 수 있습니다.");
+  }
+
+  const { data: subjects, error: subjectError } = await supabase
+    .from("exam_subjects")
+    .select("id, subject_order, name")
+    .eq("exam_id", examId)
+    .order("subject_order", { ascending: true });
+
+  if (subjectError) {
+    throw new Error(subjectError.message);
+  }
+
+  const typedSubjects = (subjects ?? []) as ExamSubjectRow[];
+  const subjectIds = typedSubjects.map((subject) => subject.id);
+  if (subjectIds.length === 0) {
+    return { examTitle: exam.title, questions: [] };
+  }
+
+  const { data: questions, error: questionError } = await supabase
+    .from("questions")
+    .select("id, exam_subject_id, question_no, stem, choice_1, choice_2, choice_3, choice_4")
+    .in("exam_subject_id", subjectIds)
+    .order("question_no", { ascending: true });
+
+  if (questionError) {
+    throw new Error(questionError.message);
+  }
+
+  const questionIds = (questions ?? []).map((question) => question.id);
+  const { data: images, error: imageError } = questionIds.length
+    ? await supabase
+        .from("question_images")
+        .select("question_id, image_order, image_path")
+        .in("question_id", questionIds)
+        .order("image_order", { ascending: true })
+    : { data: [], error: null };
+
+  if (imageError) {
+    throw new Error(imageError.message);
+  }
+
+  const subjectById = new Map(typedSubjects.map((subject) => [subject.id, subject]));
+
+  const mappedQuestions: SolveQuestion[] = (questions ?? []).map((question) => {
+    const subject = subjectById.get(question.exam_subject_id);
+    const questionImages = (images ?? [])
+      .filter((image) => image.question_id === question.id)
+      .map((image) => toImageUrl(image.image_path));
+
+    return {
+      id: question.id,
+      examSubjectId: question.exam_subject_id,
+      subjectName: subject?.name ?? "미분류",
+      subjectOrder: subject?.subject_order ?? 999,
+      questionNo: question.question_no,
+      stem: question.stem,
+      imagePaths: questionImages,
+      choices: [
+        { no: 1, text: question.choice_1 },
+        { no: 2, text: question.choice_2 },
+        { no: 3, text: question.choice_3 },
+        { no: 4, text: question.choice_4 },
+      ],
+    };
+  });
+
+  mappedQuestions.sort((a, b) => {
+    if (a.subjectOrder !== b.subjectOrder) {
+      return a.subjectOrder - b.subjectOrder;
+    }
+    return a.questionNo - b.questionNo;
+  });
 
   return {
-    examTitle: String(exam.title ?? "CBT Exam"),
-    questions,
+    examTitle: exam.title,
+    questions: mappedQuestions,
   };
 }

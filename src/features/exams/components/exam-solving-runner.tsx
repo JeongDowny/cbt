@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 
-import { submitReportAction } from "@/app/actions/reports";
+import { submitAttemptAction } from "@/app/actions/reports";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -131,7 +131,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
 
     startTransition(async () => {
       try {
-        const result = await submitReportAction({
+        const result = await submitAttemptAction({
           examId,
           userName: values.userName,
           birthDate: values.birthDate,
@@ -139,7 +139,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
           questionIds: activeQuestions.map((question) => question.id),
         });
 
-        router.replace(routes.resultPage(result.reportId));
+        router.replace(routes.resultPage(result.attemptId));
         router.refresh();
       } catch (error) {
         setSaveError(error instanceof Error ? error.message : "결과 저장에 실패했습니다.");
@@ -182,7 +182,6 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
             <p>
               응답한 문항: {solvedCount} / {totalCount}
             </p>
-            <p>예상 점수는 저장 후 결과 페이지에서 확인할 수 있습니다.</p>
           </div>
 
           <form className="grid grid-cols-1 gap-4 md:max-w-md" onSubmit={handleSubmit(submitIdentity)}>
@@ -237,7 +236,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
               <div>
                 <CardTitle>{examTitle}</CardTitle>
                 <CardDescription>
-                  문제 {currentIndex + 1} / {totalCount}
+                  {currentQuestion.subjectName} · 문제 {currentIndex + 1} / {totalCount}
                 </CardDescription>
               </div>
               {remainSeconds !== null ? (
@@ -252,12 +251,12 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
               <h2 className="text-lg font-semibold leading-7">
                 {currentQuestion.questionNo}. {currentQuestion.stem}
               </h2>
-              {currentQuestion.imageUrl ? (
-                <div className="overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)]">
+              {currentQuestion.imagePaths.map((imagePath, index) => (
+                <div key={`${currentQuestion.id}-image-${index}`} className="overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={currentQuestion.imageUrl} alt={`문항 ${currentQuestion.questionNo} 이미지`} className="h-auto w-full" />
+                  <img src={imagePath} alt={`문항 ${currentQuestion.questionNo} 이미지 ${index + 1}`} className="h-auto w-full" />
                 </div>
-              ) : null}
+              ))}
             </div>
 
             <div className="space-y-3">

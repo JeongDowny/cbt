@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { getSubmissionReportAction } from "@/app/actions/reports";
+import { getAttemptReportAction } from "@/app/actions/reports";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/features/layout/components/page-shell";
 
@@ -10,7 +10,7 @@ interface ResultPageProps {
 
 export default async function ResultPage({ params }: ResultPageProps) {
   const { reportId } = await params;
-  const report = await getSubmissionReportAction(reportId);
+  const report = await getAttemptReportAction(reportId);
 
   if (!report) {
     notFound();
@@ -23,23 +23,47 @@ export default async function ResultPage({ params }: ResultPageProps) {
       <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>{report.examTitle}</CardTitle>
+            <CardTitle>
+              {report.certificationName} · {report.examTitle}
+            </CardTitle>
             <CardDescription>
-              {report.userName} · {report.birthDate} · {new Date(report.createdAt).toLocaleString()}
+              {report.userName} · {report.birthDate} · {report.submittedAt ? new Date(report.submittedAt).toLocaleString() : "미제출"}
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="rounded-md border border-[var(--color-border)] p-4">
-              <p className="text-sm text-[var(--color-muted-foreground)]">점수</p>
-              <p className="text-2xl font-semibold">{report.score}</p>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <div className="rounded-md border border-[var(--color-border)] p-4">
+                <p className="text-sm text-[var(--color-muted-foreground)]">점수</p>
+                <p className="text-2xl font-semibold">{report.score}</p>
+              </div>
+              <div className="rounded-md border border-[var(--color-border)] p-4">
+                <p className="text-sm text-[var(--color-muted-foreground)]">정답</p>
+                <p className="text-2xl font-semibold">{report.correctCount}</p>
+              </div>
+              <div className="rounded-md border border-[var(--color-border)] p-4">
+                <p className="text-sm text-[var(--color-muted-foreground)]">오답</p>
+                <p className="text-2xl font-semibold">{wrongCount}</p>
+              </div>
+              <div className="rounded-md border border-[var(--color-border)] p-4">
+                <p className="text-sm text-[var(--color-muted-foreground)]">합격 여부</p>
+                <p className={report.passed ? "text-2xl font-semibold text-emerald-700" : "text-2xl font-semibold text-rose-700"}>
+                  {report.passed ? "합격" : "불합격"}
+                </p>
+              </div>
             </div>
-            <div className="rounded-md border border-[var(--color-border)] p-4">
-              <p className="text-sm text-[var(--color-muted-foreground)]">정답</p>
-              <p className="text-2xl font-semibold">{report.correctCount}</p>
-            </div>
-            <div className="rounded-md border border-[var(--color-border)] p-4">
-              <p className="text-sm text-[var(--color-muted-foreground)]">오답</p>
-              <p className="text-2xl font-semibold">{wrongCount}</p>
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">과목별 점수</p>
+              <ul className="space-y-2">
+                {report.subjects.map((subject) => (
+                  <li key={subject.id} className="flex items-center justify-between rounded-md border border-[var(--color-border)] px-3 py-2 text-sm">
+                    <span>{subject.subjectName}</span>
+                    <span className={subject.passed ? "font-semibold text-emerald-700" : "font-semibold text-rose-700"}>
+                      {subject.score}점 ({subject.passed ? "통과" : "과락"})
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </CardContent>
         </Card>
@@ -51,31 +75,31 @@ export default async function ResultPage({ params }: ResultPageProps) {
           </CardHeader>
           <CardContent className="space-y-5">
             {report.reviews.map((review) => (
-              <article key={review.questionId} className="rounded-md border border-[var(--color-border)] p-4">
+              <article key={review.id} className="rounded-md border border-[var(--color-border)] p-4">
                 <header className="mb-3 flex items-center justify-between gap-2">
                   <h3 className="font-semibold">
-                    {review.questionNo}. {review.stem}
+                    [{review.subjectName}] {review.questionNo}. {review.stem}
                   </h3>
                   <span className={review.isCorrect ? "text-sm font-semibold text-emerald-700" : "text-sm font-semibold text-rose-700"}>
                     {review.isCorrect ? "정답" : "오답"}
                   </span>
                 </header>
 
-                {review.imageUrl ? (
-                  <div className="mb-3 overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)]">
+                {review.imagePaths.map((imagePath, index) => (
+                  <div key={`${review.id}-image-${index}`} className="mb-3 overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={review.imageUrl} alt={`문항 ${review.questionNo} 이미지`} className="h-auto w-full" />
+                    <img src={imagePath} alt={`문항 ${review.questionNo} 이미지 ${index + 1}`} className="h-auto w-full" />
                   </div>
-                ) : null}
+                ))}
 
                 <ul className="space-y-2 text-sm">
                   {review.choices.map((choice) => {
                     const isCorrectChoice = choice.no === review.correctAnswer;
-                    const isUserChoice = choice.no === review.userAnswer;
+                    const isUserChoice = choice.no === review.selectedAnswer;
 
                     return (
                       <li
-                        key={`${review.questionId}-${choice.no}`}
+                        key={`${review.id}-${choice.no}`}
                         className={[
                           "rounded-md border px-3 py-2",
                           isCorrectChoice
@@ -93,6 +117,8 @@ export default async function ResultPage({ params }: ResultPageProps) {
                     );
                   })}
                 </ul>
+
+                {review.explanation ? <p className="mt-3 text-sm text-[var(--color-muted-foreground)]">해설: {review.explanation}</p> : null}
               </article>
             ))}
           </CardContent>

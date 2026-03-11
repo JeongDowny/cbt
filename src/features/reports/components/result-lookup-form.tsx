@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useTransition, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { lookupSubmissionReportsAction } from "@/app/actions/reports";
+import { lookupAttemptsAction } from "@/app/actions/reports";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { LookupSubmissionReportRow } from "@/features/reports/types";
+import type { LookupAttemptRow } from "@/features/reports/types";
 import { routes } from "@/lib/constants/routes";
 
 type LookupValues = {
@@ -18,7 +18,7 @@ type LookupValues = {
 };
 
 export function ResultLookupForm() {
-  const [rows, setRows] = useState<LookupSubmissionReportRow[] | null>(null);
+  const [rows, setRows] = useState<LookupAttemptRow[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -33,7 +33,7 @@ export function ResultLookupForm() {
 
     startTransition(async () => {
       try {
-        const result = await lookupSubmissionReportsAction({
+        const result = await lookupAttemptsAction({
           userName: values.name,
           birthDate: values.birthDate,
         });
@@ -92,12 +92,14 @@ export function ResultLookupForm() {
                 {rows.map((row) => (
                   <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--color-border)] px-4 py-3">
                     <div>
-                      <p className="text-sm font-semibold">{row.examTitle}</p>
-                      <p className="text-xs text-[var(--color-muted-foreground)]">{new Date(row.createdAt).toLocaleString()}</p>
+                      <p className="text-sm font-semibold">
+                        {row.certificationName} · {row.examTitle}
+                      </p>
+                      <p className="text-xs text-[var(--color-muted-foreground)]">{row.submittedAt ? new Date(row.submittedAt).toLocaleString() : "미제출"}</p>
                     </div>
                     <div className="flex items-center gap-4">
                       <p className="text-sm">
-                        {row.correctCount}/{row.totalQuestions} · {row.score}점
+                        {row.score}점 · {row.passed ? "합격" : "불합격"}
                       </p>
                       <Link href={routes.resultPage(row.id)} className="text-sm font-medium text-[var(--color-primary)] hover:underline">
                         보기

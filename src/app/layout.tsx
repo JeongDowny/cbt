@@ -1,12 +1,6 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
 
 import "./globals.css";
-
-const geist = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "CBT Program",
@@ -16,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geist.variable} bg-[var(--color-background)] font-sans text-[var(--color-foreground)] antialiased`}>
+      <body className="bg-[var(--color-background)] font-sans text-[var(--color-foreground)] antialiased">
         {children}
       </body>
     </html>

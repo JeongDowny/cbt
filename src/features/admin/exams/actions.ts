@@ -2,8 +2,8 @@
 
 import { randomUUID } from "node:crypto";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import type { AdminExamFormValues, SaveExamResult } from "@/features/admin/exams/types";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 function sanitizeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -33,6 +33,27 @@ export async function uploadQuestionImageAction(formData: FormData) {
   return { imagePath: path };
 }
 
+async function ensureCertification(certificationName: string): Promise<string> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data: existing } = await supabase
+    .from("certifications")
+    .select("id")
+    .eq("name", certificationName)
+    .maybeSingle();
+
+  if (existing?.id) {
+    return existing.id;
+  }
+
+  const { data, error } = await supabase.from("certifications").insert({ name: certificationName }).select("id").single();
+  if (error || !data) {
+    throw new Error(`자격증 저장 실패: ${error?.message ?? "unknown_error"}`);
+  }
+
+  return data.id;
+}
+
 export async function saveExamAction(payload: {
   examId?: string;
   values: AdminExamFormValues;
@@ -40,18 +61,24 @@ export async function saveExamAction(payload: {
   const { examId, values } = payload;
   const supabase = createSupabaseAdminClient();
 
+  const certificationName = values.certificationName.trim();
+  if (!certificationName) {
+    throw new Error("자격명을 입력해 주세요.");
+  }
+
+  const certificationId = await ensureCertification(certificationName);
+
   let targetExamId = examId;
 
   if (targetExamId) {
     const { error } = await supabase
       .from("exams")
       .update({
-        certification_name: values.certificationName,
-        title: values.title,
+        certification_id: certificationId,
         exam_year: values.examYear,
         exam_round: values.examRound,
-        default_time_limit_minutes: values.defaultTimeLimitMinutes,
-        is_published: values.isPublished,
+        status: values.status,
+        is_public: values.isPublic,
       })
       .eq("id", targetExamId);
 
@@ -62,12 +89,11 @@ export async function saveExamAction(payload: {
     const { data, error } = await supabase
       .from("exams")
       .insert({
-        certification_name: values.certificationName,
-        title: values.title,
+        certification_id: certificationId,
         exam_year: values.examYear,
         exam_round: values.examRound,
-        default_time_limit_minutes: values.defaultTimeLimitMinutes,
-        is_published: values.isPublished,
+        status: values.status,
+        is_public: values.isPublic,
       })
       .select("id")
       .single();
@@ -79,54 +105,81 @@ export async function saveExamAction(payload: {
     targetExamId = data.id;
   }
 
-  const { error: deleteError } = await supabase.from("questions").delete().eq("exam_id", targetExamId);
-  if (deleteError) {
-    throw new Error(`기존 문항 정리 실패: ${deleteError.message}`);
+  const { error: deleteSubjectError } = await supabase.from("exam_subjects").delete().eq("exam_id", targetExamId);
+  if (deleteSubjectError) {
+    throw new Error(`기존 과목 정리 실패: ${deleteSubjectError.message}`);
   }
 
-  for (let questionIndex = 0; questionIndex < values.questions.length; questionIndex += 1) {
-    const question = values.questions[questionIndex];
-    const questionId = randomUUID();
+  const grouped = new Map<string, { timeLimitMinutes: number; questions: AdminExamFormValues["questions"] }>();
 
-    const choices = question.choices.slice(0, question.choiceCount).map((choice, idx) => {
-      const choiceId = randomUUID();
-      return {
-        id: choiceId,
-        question_id: questionId,
-        choice_no: idx + 1,
-        content: choice.content,
-      };
-    });
+  for (const question of values.questions) {
+    const subjectName = question.subjectName.trim() || "공통";
 
-    const correctChoice = choices.find((choice) => choice.choice_no === question.correctChoiceNo);
-    if (!correctChoice) {
-      throw new Error(`정답 선택이 올바르지 않습니다. question_no=${questionIndex + 1}`);
+    const existing = grouped.get(subjectName);
+    if (!existing) {
+      grouped.set(subjectName, {
+        timeLimitMinutes: question.subjectTimeLimitMinutes || 30,
+        questions: [question],
+      });
+    } else {
+      existing.questions.push(question);
+    }
+  }
+
+  const subjectEntries = Array.from(grouped.entries());
+
+  for (let subjectIndex = 0; subjectIndex < subjectEntries.length; subjectIndex += 1) {
+    const [subjectName, subjectData] = subjectEntries[subjectIndex];
+
+    const { data: subject, error: subjectError } = await supabase
+      .from("exam_subjects")
+      .insert({
+        exam_id: targetExamId,
+        subject_order: subjectIndex + 1,
+        name: subjectName,
+        time_limit_minutes: subjectData.timeLimitMinutes,
+      })
+      .select("id")
+      .single();
+
+    if (subjectError || !subject) {
+      throw new Error(`과목 저장 실패(${subjectName}): ${subjectError?.message ?? "unknown_error"}`);
     }
 
-    const { error: questionError } = await supabase.from("questions").insert({
-      id: questionId,
-      exam_id: targetExamId,
-      question_no: questionIndex + 1,
-      stem: question.stem,
-      image_path: question.imagePath,
-      choice_count: question.choiceCount,
-      correct_choice_id: correctChoice.id,
-      explanation: question.explanation || null,
-    });
+    for (let questionIndex = 0; questionIndex < subjectData.questions.length; questionIndex += 1) {
+      const question = subjectData.questions[questionIndex];
 
-    if (questionError) {
-      throw new Error(`문항 저장 실패(${questionIndex + 1}번): ${questionError.message}`);
-    }
+      const { data: insertedQuestion, error: questionError } = await supabase
+        .from("questions")
+        .insert({
+          exam_subject_id: subject.id,
+          question_no: questionIndex + 1,
+          stem: question.stem,
+          choice_1: question.choices[0]?.content ?? "",
+          choice_2: question.choices[1]?.content ?? "",
+          choice_3: question.choices[2]?.content ?? "",
+          choice_4: question.choices[3]?.content ?? "",
+          correct_answer: question.correctChoiceNo,
+          explanation: question.explanation,
+        })
+        .select("id")
+        .single();
 
-    const { error: choiceError } = await supabase.from("choices").insert(
-      choices.map((choice) => ({
-        ...choice,
-        is_correct: choice.choice_no === question.correctChoiceNo,
-      }))
-    );
+      if (questionError || !insertedQuestion) {
+        throw new Error(`문항 저장 실패(${subjectName} ${questionIndex + 1}번): ${questionError?.message ?? "unknown_error"}`);
+      }
 
-    if (choiceError) {
-      throw new Error(`선택지 저장 실패(${questionIndex + 1}번): ${choiceError.message}`);
+      if (question.imagePath) {
+        const { error: imageError } = await supabase.from("question_images").insert({
+          question_id: insertedQuestion.id,
+          image_order: 1,
+          image_path: question.imagePath,
+        });
+
+        if (imageError) {
+          throw new Error(`문항 이미지 저장 실패(${subjectName} ${questionIndex + 1}번): ${imageError.message}`);
+        }
+      }
     }
   }
 

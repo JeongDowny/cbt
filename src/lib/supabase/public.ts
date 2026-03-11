@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from "@/types/database";
 
 export function createSupabasePublicClient() {
   const url = process.env.SUPABASE_URL;
@@ -7,8 +8,7 @@ export function createSupabasePublicClient() {
   if (!url) throw new Error('Missing env: SUPABASE_URL');
   if (!publishableKey) throw new Error('Missing env: SUPABASE_PUBLISHABLE_KEY');
 
-  return createClient(url, publishableKey, {
+  return createClient<Database>(url, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
-

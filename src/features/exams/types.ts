@@ -4,6 +4,8 @@ export interface StudentExamOption {
   title: string;
   examYear: number;
   examRound: number;
+  status: "draft" | "published" | "archived";
+  isPublic: boolean;
 }
 
 export interface SolveChoice {
@@ -13,8 +15,11 @@ export interface SolveChoice {
 
 export interface SolveQuestion {
   id: string;
+  examSubjectId: string;
+  subjectName: string;
+  subjectOrder: number;
   questionNo: number;
   stem: string;
-  imageUrl: string | null;
+  imagePaths: string[];
   choices: SolveChoice[];
 }
