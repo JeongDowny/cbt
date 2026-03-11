@@ -3,6 +3,8 @@ import { ExamSelectionForm } from "@/features/exams/components/exam-selection-fo
 import type { StudentExamOption } from "@/features/exams/types";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 
+export const dynamic = "force-dynamic";
+
 export default async function ExamSelectionPage() {
   const supabase = createSupabasePublicClient();
   const { data, error } = await supabase
