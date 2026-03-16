@@ -42,7 +42,7 @@ export default function HomePage() {
               <p className="text-sm font-semibold">집중형 풀이 화면</p>
               <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">문항, 타이머, 진행 현황을 한 화면 안에서 안정적으로 제공합니다.</p>
             </div>
-            <div className="selection-tile">
+            <div className="selection-tile hidden md:block">
               <p className="text-sm font-semibold">관리자 시험 관리</p>
               <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">로그인 후 시험 생성, 수정, 공개 상태를 관리할 수 있습니다.</p>
             </div>

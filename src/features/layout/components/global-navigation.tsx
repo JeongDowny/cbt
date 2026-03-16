@@ -39,7 +39,7 @@ export async function GlobalNavigation() {
 
         <Link
           href={user ? routes.adminDashboard : routes.adminLogin}
-          className={cn(buttonVariants({ variant: user ? "secondary" : "outline", size: "sm" }))}
+          className={cn("hidden md:inline-flex", buttonVariants({ variant: user ? "secondary" : "outline", size: "sm" }))}
         >
           {user ? "관리자 대시보드" : "관리자 로그인"}
         </Link>
