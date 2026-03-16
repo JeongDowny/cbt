@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ClassGroupOption } from "@/features/classes/types";
 import type { SolveQuestion } from "@/features/exams/types";
+import { compressImageToMaxSize } from "@/features/exams/utils/compress-image";
 import { routes } from "@/lib/constants/routes";
 import { useExamSessionStore } from "@/stores/exam-session.store";
 
@@ -28,10 +29,17 @@ type WorkImageState = {
   path: string;
   publicUrl: string;
   fileName: string;
+  sizeBytes?: number;
+};
+
+type WorkImageProcessingState = {
+  questionId: string;
+  stage: "compressing" | "uploading";
 };
 
 const WORK_IMAGE_STORAGE_KEY_PREFIX = "exam-work-images";
 const WORK_IMAGE_DRAFT_KEY_PREFIX = "exam-work-draft";
+const MAX_WORK_IMAGE_BYTES = 1024 * 1024;
 
 function formatRemain(seconds: number) {
   const safe = Math.max(seconds, 0);
@@ -47,6 +55,16 @@ function shuffled<T>(items: T[]) {
     [copy[idx], copy[randomIndex]] = [copy[randomIndex], copy[idx]];
   }
   return copy;
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes}B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)}KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
 }
 
 export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOptions }: ExamSolvingRunnerProps) {
@@ -81,7 +99,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOpti
   const [saveError, setSaveError] = useState<string | null>(null);
   const [workImages, setWorkImages] = useState<Record<string, WorkImageState>>({});
   const [clientDraftId, setClientDraftId] = useState("");
-  const [uploadingQuestionId, setUploadingQuestionId] = useState<string | null>(null);
+  const [workImageProcessing, setWorkImageProcessing] = useState<WorkImageProcessingState | null>(null);
   const [workImageError, setWorkImageError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -167,6 +185,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOpti
   const progressPercent = totalCount === 0 ? 0 : Math.round((solvedCount / totalCount) * 100);
   const currentQuestion = activeQuestions[currentIndex];
   const currentWorkImage = currentQuestion ? workImages[currentQuestion.id] : null;
+  const currentProcessingStage = currentQuestion && workImageProcessing?.questionId === currentQuestion.id ? workImageProcessing.stage : null;
   const timeoutReached = remainSeconds !== null && remainSeconds <= 0;
   const submitRequested = manualSubmitRequested || timeoutReached;
 
@@ -186,7 +205,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOpti
   };
 
   const submitIdentity = (values: SubmitIdentityValues) => {
-    if (uploadingQuestionId) {
+    if (workImageProcessing) {
       setSaveError("손풀이 이미지 업로드가 끝난 뒤 다시 제출해 주세요.");
       return;
     }
@@ -224,13 +243,16 @@ export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOpti
     }
 
     setWorkImageError(null);
-    setUploadingQuestionId(questionId);
+    setWorkImageProcessing({ questionId, stage: "compressing" });
 
-    startTransition(async () => {
+    void (async () => {
       try {
+        const compressedFile = await compressImageToMaxSize(file, { maxBytes: MAX_WORK_IMAGE_BYTES });
+        setWorkImageProcessing({ questionId, stage: "uploading" });
+
         const previousPath = workImages[questionId]?.path ?? null;
         const formData = new FormData();
-        formData.set("file", file);
+        formData.set("file", compressedFile);
         formData.set("draftId", clientDraftId);
         formData.set("questionId", questionId);
 
@@ -247,15 +269,16 @@ export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOpti
           [questionId]: {
             path: result.path,
             publicUrl: result.publicUrl,
-            fileName: file.name,
+            fileName: compressedFile.name,
+            sizeBytes: compressedFile.size,
           },
         }));
       } catch (error) {
         setWorkImageError(error instanceof Error ? error.message : "손풀이 이미지 업로드에 실패했습니다.");
       } finally {
-        setUploadingQuestionId(null);
+        setWorkImageProcessing(null);
       }
-    });
+    })();
   };
 
   const clearWorkImage = (questionId: string) => {
@@ -356,7 +379,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOpti
 
             <div className="flex flex-wrap items-center gap-2">
               <Button type="submit" disabled={isPending}>
-                {isPending || uploadingQuestionId ? "저장 중..." : "채점 및 결과 저장"}
+                {isPending || workImageProcessing ? "저장 중..." : "채점 및 결과 저장"}
               </Button>
               <Button type="button" variant="outline" onClick={() => setManualSubmitRequested(false)} disabled={timeoutReached || isPending}>
                 돌아가기
@@ -447,12 +470,18 @@ export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOpti
                   <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">종이에 푼 내용을 촬영해서 현재 문항에 첨부할 수 있습니다.</p>
                 </div>
                 <label className="inline-flex cursor-pointer items-center rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-primary-soft)] px-4 py-2 text-sm font-semibold text-[var(--color-foreground)]">
-                  {uploadingQuestionId === currentQuestion.id ? "업로드 중..." : currentWorkImage ? "이미지 교체" : "이미지 선택"}
+                  {currentProcessingStage === "compressing"
+                    ? "압축 중..."
+                    : currentProcessingStage === "uploading"
+                      ? "업로드 중..."
+                      : currentWorkImage
+                        ? "이미지 교체"
+                        : "이미지 선택"}
                   <input
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    disabled={uploadingQuestionId === currentQuestion.id}
+                    disabled={Boolean(currentProcessingStage)}
                     onChange={(event) => {
                       attachWorkImage(currentQuestion.id, event.target.files?.[0] ?? null);
                       event.currentTarget.value = "";
@@ -464,7 +493,10 @@ export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOpti
               {currentWorkImage ? (
                 <div className="mt-4 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-muted-foreground)]">
-                    <span>{currentWorkImage.fileName}</span>
+                    <span>
+                      {currentWorkImage.fileName}
+                      {typeof currentWorkImage.sizeBytes === "number" ? ` · ${formatFileSize(currentWorkImage.sizeBytes)}` : ""}
+                    </span>
                     <Button type="button" variant="outline" size="sm" onClick={() => clearWorkImage(currentQuestion.id)}>
                       이미지 제거
                     </Button>
@@ -476,6 +508,11 @@ export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOpti
                 </div>
               ) : null}
 
+              {currentProcessingStage ? (
+                <p className="mt-3 text-sm text-[var(--color-muted-foreground)]">
+                  {currentProcessingStage === "compressing" ? "이미지를 1MB 이하로 자동 압축하는 중입니다." : "압축된 이미지를 업로드하는 중입니다."}
+                </p>
+              ) : null}
               {workImageError ? <p className="mt-3 text-sm text-red-700">{workImageError}</p> : null}
             </div>
           </CardContent>
@@ -541,7 +578,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOpti
               })}
             </div>
 
-            <Button type="button" className="w-full" onClick={() => setManualSubmitRequested(true)} disabled={Boolean(uploadingQuestionId)}>
+            <Button type="button" className="w-full" onClick={() => setManualSubmitRequested(true)} disabled={Boolean(workImageProcessing)}>
               시험 제출하기
             </Button>
           </CardContent>
