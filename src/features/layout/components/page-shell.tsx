@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { BackButton } from "@/features/layout/components/back-button";
 import { cn } from "@/lib/utils";
 
 interface PageShellProps {
@@ -12,6 +13,9 @@ interface PageShellProps {
   headerAlign?: "center" | "left";
   density?: "default" | "compact";
   width?: "default" | "wide" | "narrow";
+  showBackButton?: boolean;
+  backHref?: string;
+  headerActions?: ReactNode;
 }
 
 export function PageShell({
@@ -24,6 +28,9 @@ export function PageShell({
   headerAlign = "center",
   density = "default",
   width = "default",
+  showBackButton = false,
+  backHref = "/",
+  headerActions,
 }: PageShellProps) {
   const widthClassName =
     width === "wide" ? "max-w-[var(--page-max-width-wide)]" : width === "narrow" ? "max-w-[640px]" : "max-w-[var(--page-max-width)]";
@@ -38,6 +45,12 @@ export function PageShell({
           density === "compact" ? "mb-6 space-y-3" : "mb-8 space-y-4"
         )}
       >
+        {showBackButton || headerActions ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>{showBackButton ? <BackButton href={backHref} /> : null}</div>
+            {headerActions ? <div className="flex flex-wrap items-center gap-2">{headerActions}</div> : null}
+          </div>
+        ) : null}
         {badge ? (
           <div className={cn("flex", headerAlign === "center" ? "justify-center" : "justify-start")}>
             <span className="inline-flex items-center rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-primary)] px-4 py-1.5 text-sm font-semibold text-white shadow-sm">

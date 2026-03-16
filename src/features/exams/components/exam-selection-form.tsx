@@ -1,6 +1,4 @@
 "use client";
-
-import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
@@ -274,11 +272,6 @@ export function ExamSelectionForm({ exams, loadErrorMessage }: ExamSelectionForm
             <Button type="submit" size="lg" className="w-full">
               시험 시작하기
             </Button>
-            <div className="text-center">
-              <Link href={routes.resultLookup} className="text-sm font-medium text-[var(--color-primary)] hover:underline">
-                이전 결과 조회하기
-              </Link>
-            </div>
           </div>
         </>
       )}

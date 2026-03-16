@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageShell } from "@/features/layout/components/page-shell";
 import { routes } from "@/lib/constants/routes";
@@ -25,7 +24,7 @@ export default function HomePage() {
             <Link href={routes.resultLookup} className="selection-tile block">
               <p className="text-sm font-semibold text-[var(--color-primary)]">결과 조회</p>
               <p className="mt-2 text-xl font-semibold">저장된 결과 다시 보기</p>
-              <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">이름과 생년월일로 이전 응시 결과를 확인할 수 있습니다.</p>
+              <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">반과 이름으로 이전 응시 결과를 확인할 수 있습니다.</p>
             </Link>
           </div>
         </CardContent>
@@ -47,15 +46,6 @@ export default function HomePage() {
               <p className="text-sm font-semibold">관리자 시험 관리</p>
               <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">로그인 후 시험 생성, 수정, 공개 상태를 관리할 수 있습니다.</p>
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Link className={buttonVariants()} href={routes.examSelection}>
-              시험 시작하기
-            </Link>
-            <Link className={buttonVariants({ variant: "outline" })} href={routes.adminLogin}>
-              관리자 로그인
-            </Link>
           </div>
         </CardContent>
       </Card>

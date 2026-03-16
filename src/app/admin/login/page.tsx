@@ -22,6 +22,8 @@ export default async function AdminLoginPage() {
       description="관리자 계정으로 로그인해 시험 생성, 수정, 공개 상태 관리를 이어서 진행하세요."
       width="narrow"
       density="compact"
+      showBackButton
+      backHref={routes.home}
     >
       <AdminLoginForm />
     </PageShell>
