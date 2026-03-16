@@ -1,4 +1,5 @@
 import { createSupabasePublicClient } from "@/lib/supabase/public";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { SolveQuestion } from "@/features/exams/types";
 
 interface ExamSubjectRow {
@@ -19,6 +20,10 @@ function toImageUrl(pathOrUrl: string): string {
 
 export async function fetchSolveData(examId: string): Promise<{ examTitle: string; questions: SolveQuestion[] }> {
   const supabase = createSupabasePublicClient();
+  const serverSupabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await serverSupabase.auth.getUser();
 
   const { data: exam, error: examError } = await supabase
     .from("exams")
@@ -30,7 +35,7 @@ export async function fetchSolveData(examId: string): Promise<{ examTitle: strin
     throw new Error(examError?.message ?? "시험 정보를 찾을 수 없습니다.");
   }
 
-  if (!exam.is_public || exam.status !== "published") {
+  if (!user && (!exam.is_public || exam.status !== "published")) {
     throw new Error("공개된 시험만 응시할 수 있습니다.");
   }
 

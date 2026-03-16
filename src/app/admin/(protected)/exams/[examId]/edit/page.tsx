@@ -17,7 +17,13 @@ export default async function AdminExamEditPage({ params }: AdminExamEditPagePro
   }
 
   return (
-    <PageShell title="Edit Exam" description="시험 메타데이터와 문항을 수정합니다.">
+    <PageShell
+      badge="관리자"
+      title="시험 수정"
+      description="기존 시험의 기본 정보와 문항 구성을 확인하고 수정하세요."
+      width="wide"
+      density="compact"
+    >
       <AdminExamEditorForm mode="edit" examId={examId} initialValues={initialValues} />
     </PageShell>
   );

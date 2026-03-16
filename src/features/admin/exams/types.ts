@@ -6,13 +6,17 @@ export type QuestionChoiceForm = {
 };
 
 export type QuestionForm = {
-  subjectName: string;
-  subjectTimeLimitMinutes: number;
   stem: string;
   correctChoiceNo: 1 | 2 | 3 | 4;
   imagePath: string | null;
   explanation: string;
   choices: QuestionChoiceForm[];
+};
+
+export type SubjectForm = {
+  name: string;
+  timeLimitMinutes: number;
+  questions: QuestionForm[];
 };
 
 export type AdminExamFormValues = {
@@ -21,7 +25,7 @@ export type AdminExamFormValues = {
   examRound: number;
   status: ExamStatus;
   isPublic: boolean;
-  questions: QuestionForm[];
+  subjects: SubjectForm[];
 };
 
 export type SaveExamResult = {

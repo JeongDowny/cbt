@@ -1,20 +1,11 @@
-import type { AdminExamFormValues, QuestionForm } from "@/features/admin/exams/types";
+import type { AdminExamFormValues, QuestionForm, SubjectForm } from "@/features/admin/exams/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
-function buildDefaultQuestion(): QuestionForm {
+export function buildDefaultSubject(): SubjectForm {
   return {
-    subjectName: "전기자기학",
-    subjectTimeLimitMinutes: 30,
-    stem: "",
-    correctChoiceNo: 1,
-    imagePath: null,
-    explanation: "",
-    choices: [
-      { choiceNo: 1, content: "" },
-      { choiceNo: 2, content: "" },
-      { choiceNo: 3, content: "" },
-      { choiceNo: 4, content: "" },
-    ],
+    name: "",
+    timeLimitMinutes: 30,
+    questions: [],
   };
 }
 
@@ -25,7 +16,7 @@ export function createEmptyExamFormValues(): AdminExamFormValues {
     examRound: 1,
     status: "draft",
     isPublic: false,
-    questions: [buildDefaultQuestion()],
+    subjects: [],
   };
 }
 
@@ -68,17 +59,13 @@ export async function getExamFormValuesById(examId: string): Promise<AdminExamFo
         .order("image_order", { ascending: true })
     : { data: [] };
 
-  const subjectById = new Map(
-    (subjects ?? []).map((subject) => [subject.id, { name: subject.name, timeLimitMinutes: subject.time_limit_minutes }])
-  );
+  const subjectQuestionMap = new Map<string, QuestionForm[]>();
 
-  const formQuestions: QuestionForm[] = (questions ?? []).map((question) => {
-    const subject = subjectById.get(question.exam_subject_id);
+  (questions ?? []).forEach((question) => {
     const image = (images ?? []).find((item) => item.question_id === question.id && item.image_order === 1);
+    const existingQuestions = subjectQuestionMap.get(question.exam_subject_id) ?? [];
 
-    return {
-      subjectName: subject?.name ?? "공통",
-      subjectTimeLimitMinutes: subject?.timeLimitMinutes ?? 30,
+    existingQuestions.push({
       stem: question.stem,
       correctChoiceNo: question.correct_answer as 1 | 2 | 3 | 4,
       imagePath: image?.image_path ?? null,
@@ -89,8 +76,16 @@ export async function getExamFormValuesById(examId: string): Promise<AdminExamFo
         { choiceNo: 3, content: question.choice_3 },
         { choiceNo: 4, content: question.choice_4 },
       ],
-    };
+    });
+
+    subjectQuestionMap.set(question.exam_subject_id, existingQuestions);
   });
+
+  const formSubjects: SubjectForm[] = (subjects ?? []).map((subject) => ({
+    name: subject.name,
+    timeLimitMinutes: subject.time_limit_minutes,
+    questions: subjectQuestionMap.get(subject.id) ?? [],
+  }));
 
   return {
     certificationName: certification?.name ?? "",
@@ -98,6 +93,6 @@ export async function getExamFormValuesById(examId: string): Promise<AdminExamFo
     examRound: exam.exam_round,
     status: exam.status,
     isPublic: exam.is_public,
-    questions: formQuestions.length ? formQuestions : [buildDefaultQuestion()],
+    subjects: formSubjects.length ? formSubjects : [],
   };
 }

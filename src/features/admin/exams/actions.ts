@@ -66,6 +66,18 @@ export async function saveExamAction(payload: {
     throw new Error("자격명을 입력해 주세요.");
   }
 
+  const normalizedSubjects = values.subjects
+    .map((subject) => ({
+      name: subject.name.trim(),
+      timeLimitMinutes: subject.timeLimitMinutes || 30,
+      questions: subject.questions,
+    }))
+    .filter((subject) => subject.name);
+
+  if (normalizedSubjects.length === 0) {
+    throw new Error("최소 1개 이상의 과목을 추가해 주세요.");
+  }
+
   const certificationId = await ensureCertification(certificationName);
 
   let targetExamId = examId;
@@ -105,54 +117,113 @@ export async function saveExamAction(payload: {
     targetExamId = data.id;
   }
 
-  const { error: deleteSubjectError } = await supabase.from("exam_subjects").delete().eq("exam_id", targetExamId);
-  if (deleteSubjectError) {
-    throw new Error(`기존 과목 정리 실패: ${deleteSubjectError.message}`);
+  const { data: existingSubjects, error: existingSubjectsError } = await supabase
+    .from("exam_subjects")
+    .select("id, name, subject_order")
+    .eq("exam_id", targetExamId)
+    .order("subject_order", { ascending: true });
+
+  if (existingSubjectsError) {
+    throw new Error(`기존 과목 조회 실패: ${existingSubjectsError.message}`);
   }
 
-  const grouped = new Map<string, { timeLimitMinutes: number; questions: AdminExamFormValues["questions"] }>();
+  const existingSubjectIds = (existingSubjects ?? []).map((subject) => subject.id);
 
-  for (const question of values.questions) {
-    const subjectName = question.subjectName.trim() || "공통";
-
-    const existing = grouped.get(subjectName);
-    if (!existing) {
-      grouped.set(subjectName, {
-        timeLimitMinutes: question.subjectTimeLimitMinutes || 30,
-        questions: [question],
-      });
-    } else {
-      existing.questions.push(question);
+  if (existingSubjectIds.length > 0) {
+    const { error: deleteQuestionError } = await supabase.from("questions").delete().in("exam_subject_id", existingSubjectIds);
+    if (deleteQuestionError) {
+      throw new Error(`기존 문항 정리 실패: ${deleteQuestionError.message}`);
     }
   }
 
-  const subjectEntries = Array.from(grouped.entries());
+  const remainingSubjects = [...(existingSubjects ?? [])];
+  const assignedSubjects: Array<{
+    subjectId?: string;
+    currentName?: string;
+    nextName: string;
+    nextOrder: number;
+    timeLimitMinutes: number;
+    questions: AdminExamFormValues["subjects"][number]["questions"];
+  }> = [];
 
-  for (let subjectIndex = 0; subjectIndex < subjectEntries.length; subjectIndex += 1) {
-    const [subjectName, subjectData] = subjectEntries[subjectIndex];
+  for (let subjectIndex = 0; subjectIndex < normalizedSubjects.length; subjectIndex += 1) {
+    const subjectData = normalizedSubjects[subjectIndex];
+    const matchedByNameIndex = remainingSubjects.findIndex((subject) => subject.name === subjectData.name);
+    const matchedSubject = matchedByNameIndex >= 0 ? remainingSubjects.splice(matchedByNameIndex, 1)[0] : remainingSubjects.shift();
 
-    const { data: subject, error: subjectError } = await supabase
+    assignedSubjects.push({
+      subjectId: matchedSubject?.id,
+      currentName: matchedSubject?.name,
+      nextName: subjectData.name,
+      nextOrder: subjectIndex + 1,
+      timeLimitMinutes: subjectData.timeLimitMinutes,
+      questions: subjectData.questions,
+    });
+  }
+
+  for (let existingIndex = 0; existingIndex < (existingSubjects ?? []).length; existingIndex += 1) {
+    const existingSubject = (existingSubjects ?? [])[existingIndex];
+    const matchedAssignedSubject = assignedSubjects.find((subject) => subject.subjectId === existingSubject.id);
+    const temporaryName =
+      matchedAssignedSubject?.currentName && matchedAssignedSubject.currentName !== matchedAssignedSubject.nextName
+        ? `__tmp__${randomUUID()}`
+        : existingSubject.name;
+
+    const { error: tempRenameError } = await supabase
       .from("exam_subjects")
-      .insert({
-        exam_id: targetExamId,
-        subject_order: subjectIndex + 1,
-        name: subjectName,
-        time_limit_minutes: subjectData.timeLimitMinutes,
+      .update({
+        subject_order: 1000 + existingIndex,
+        ...(temporaryName ? { name: temporaryName } : {}),
       })
-      .select("id")
-      .single();
+      .eq("id", existingSubject.id);
 
-    if (subjectError || !subject) {
-      throw new Error(`과목 저장 실패(${subjectName}): ${subjectError?.message ?? "unknown_error"}`);
+    if (tempRenameError) {
+      throw new Error(`과목 정리 준비 실패: ${tempRenameError.message}`);
+    }
+  }
+
+  for (const assignedSubject of assignedSubjects) {
+    let activeSubjectId = assignedSubject.subjectId;
+
+    if (activeSubjectId) {
+      const { error: updateSubjectError } = await supabase
+        .from("exam_subjects")
+        .update({
+          subject_order: assignedSubject.nextOrder,
+          name: assignedSubject.nextName,
+          time_limit_minutes: assignedSubject.timeLimitMinutes,
+        })
+        .eq("id", activeSubjectId);
+
+      if (updateSubjectError) {
+        throw new Error(`과목 저장 실패(${assignedSubject.nextName}): ${updateSubjectError.message}`);
+      }
+    } else {
+      const { data: insertedSubject, error: insertSubjectError } = await supabase
+        .from("exam_subjects")
+        .insert({
+          exam_id: targetExamId,
+          subject_order: assignedSubject.nextOrder,
+          name: assignedSubject.nextName,
+          time_limit_minutes: assignedSubject.timeLimitMinutes,
+        })
+        .select("id")
+        .single();
+
+      if (insertSubjectError || !insertedSubject) {
+        throw new Error(`과목 저장 실패(${assignedSubject.nextName}): ${insertSubjectError?.message ?? "unknown_error"}`);
+      }
+
+      activeSubjectId = insertedSubject.id;
     }
 
-    for (let questionIndex = 0; questionIndex < subjectData.questions.length; questionIndex += 1) {
-      const question = subjectData.questions[questionIndex];
+    for (let questionIndex = 0; questionIndex < assignedSubject.questions.length; questionIndex += 1) {
+      const question = assignedSubject.questions[questionIndex];
 
       const { data: insertedQuestion, error: questionError } = await supabase
         .from("questions")
         .insert({
-          exam_subject_id: subject.id,
+          exam_subject_id: activeSubjectId,
           question_no: questionIndex + 1,
           stem: question.stem,
           choice_1: question.choices[0]?.content ?? "",
@@ -166,7 +237,7 @@ export async function saveExamAction(payload: {
         .single();
 
       if (questionError || !insertedQuestion) {
-        throw new Error(`문항 저장 실패(${subjectName} ${questionIndex + 1}번): ${questionError?.message ?? "unknown_error"}`);
+        throw new Error(`문항 저장 실패(${assignedSubject.nextName} ${questionIndex + 1}번): ${questionError?.message ?? "unknown_error"}`);
       }
 
       if (question.imagePath) {
@@ -177,7 +248,7 @@ export async function saveExamAction(payload: {
         });
 
         if (imageError) {
-          throw new Error(`문항 이미지 저장 실패(${subjectName} ${questionIndex + 1}번): ${imageError.message}`);
+          throw new Error(`문항 이미지 저장 실패(${assignedSubject.nextName} ${questionIndex + 1}번): ${imageError.message}`);
         }
       }
     }

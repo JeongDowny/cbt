@@ -1,19 +1,27 @@
 import { PageShell } from "@/features/layout/components/page-shell";
 import { ExamSelectionForm } from "@/features/exams/components/exam-selection-form";
 import type { StudentExamOption } from "@/features/exams/types";
-import { createSupabasePublicClient } from "@/lib/supabase/public";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function ExamSelectionPage() {
-  const supabase = createSupabasePublicClient();
-  const { data, error } = await supabase
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let query = supabase
     .from("exams")
     .select("id, title, exam_year, exam_round, status, is_public, certifications(name)")
-    .eq("status", "published")
-    .eq("is_public", true)
     .order("exam_year", { ascending: false })
     .order("exam_round", { ascending: false });
+
+  if (!user) {
+    query = query.eq("status", "published").eq("is_public", true);
+  }
+
+  const { data, error } = await query;
 
   const exams: StudentExamOption[] = (data ?? []).map((exam) => {
     const certification = Array.isArray(exam.certifications) ? exam.certifications[0] : exam.certifications;
@@ -30,7 +38,11 @@ export default async function ExamSelectionPage() {
   });
 
   return (
-    <PageShell title="시험 선택" description="시험 정보를 선택하고 응시 옵션을 설정하세요.">
+    <PageShell
+      badge="전기 CBT"
+      title="전기기사 · 산업기사 CBT 기출문제"
+      description="응시할 시험을 고르고, 원하는 방식으로 풀이 옵션을 정해 시작하세요."
+    >
       <ExamSelectionForm exams={exams} loadErrorMessage={error?.message} />
     </PageShell>
   );
