@@ -2,7 +2,10 @@
 
 import { randomUUID } from "node:crypto";
 
+import { revalidatePath } from "next/cache";
+
 import type { AdminExamFormValues, SaveExamResult } from "@/features/admin/exams/types";
+import { routes } from "@/lib/constants/routes";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 function sanitizeFileName(fileName: string) {
@@ -256,4 +259,68 @@ export async function saveExamAction(payload: {
   }
 
   return { examId: targetExamId };
+}
+
+export async function deleteExamAction(payload: { examId: string }): Promise<void> {
+  const examId = payload.examId.trim();
+  if (!examId) {
+    throw new Error("삭제할 시험 정보를 찾을 수 없습니다.");
+  }
+
+  const supabase = createSupabaseAdminClient();
+
+  const { count, error: attemptCountError } = await supabase
+    .from("attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("exam_id", examId);
+
+  if (attemptCountError) {
+    throw new Error(`응시 기록 확인 실패: ${attemptCountError.message}`);
+  }
+
+  if ((count ?? 0) > 0) {
+    throw new Error("이미 응시 기록이 있는 시험은 삭제할 수 없습니다.");
+  }
+
+  const { data: subjects, error: subjectError } = await supabase.from("exam_subjects").select("id").eq("exam_id", examId);
+  if (subjectError) {
+    throw new Error(`과목 조회 실패: ${subjectError.message}`);
+  }
+
+  const subjectIds = (subjects ?? []).map((subject) => subject.id);
+  if (subjectIds.length > 0) {
+    const { data: questions, error: questionLookupError } = await supabase
+      .from("questions")
+      .select("id")
+      .in("exam_subject_id", subjectIds);
+
+    if (questionLookupError) {
+      throw new Error(`문항 조회 실패: ${questionLookupError.message}`);
+    }
+
+    const questionIds = (questions ?? []).map((question) => question.id);
+    if (questionIds.length > 0) {
+      const { error: questionImageDeleteError } = await supabase.from("question_images").delete().in("question_id", questionIds);
+      if (questionImageDeleteError) {
+        throw new Error(`문항 이미지 정리 실패: ${questionImageDeleteError.message}`);
+      }
+
+      const { error: questionDeleteError } = await supabase.from("questions").delete().in("exam_subject_id", subjectIds);
+      if (questionDeleteError) {
+        throw new Error(`문항 정리 실패: ${questionDeleteError.message}`);
+      }
+    }
+
+    const { error: subjectDeleteError } = await supabase.from("exam_subjects").delete().eq("exam_id", examId);
+    if (subjectDeleteError) {
+      throw new Error(`과목 정리 실패: ${subjectDeleteError.message}`);
+    }
+  }
+
+  const { error: examDeleteError } = await supabase.from("exams").delete().eq("id", examId);
+  if (examDeleteError) {
+    throw new Error(`시험 삭제 실패: ${examDeleteError.message}`);
+  }
+
+  revalidatePath(routes.adminDashboard);
 }

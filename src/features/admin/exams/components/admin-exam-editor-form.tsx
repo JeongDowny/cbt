@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { saveExamAction, uploadQuestionImageAction } from "@/features/admin/exams/actions";
+import { deleteExamAction, saveExamAction, uploadQuestionImageAction } from "@/features/admin/exams/actions";
 import type { AdminExamFormValues } from "@/features/admin/exams/types";
 import { routes } from "@/lib/constants/routes";
 
@@ -327,6 +327,18 @@ export function AdminExamEditorForm({ mode, examId, initialValues }: AdminExamEd
     control,
     name: "subjects",
   });
+  const certificationName = useWatch({
+    control,
+    name: "certificationName",
+  });
+  const examYear = useWatch({
+    control,
+    name: "examYear",
+  });
+  const examRound = useWatch({
+    control,
+    name: "examRound",
+  });
 
   const onSubmit = async (values: AdminExamFormValues) => {
     setSubmitError(null);
@@ -344,6 +356,36 @@ export function AdminExamEditorForm({ mode, examId, initialValues }: AdminExamEd
 
   const addSubject = () => {
     append(createSubjectTemplate());
+  };
+
+  const handleDeleteExam = () => {
+    if (!examId) {
+      return;
+    }
+
+    const examLabel = `${certificationName?.trim() || "시험"} ${examYear ?? ""}년 ${examRound ?? ""}회차`.trim();
+    const confirmedName = window.prompt(`삭제하려면 시험명 "${examLabel}" 을(를) 입력해 주세요.`, "");
+
+    if (confirmedName === null) {
+      return;
+    }
+
+    if (confirmedName.trim() !== examLabel) {
+      window.alert("시험명이 일치하지 않아 삭제하지 않았습니다.");
+      return;
+    }
+
+    setSubmitError(null);
+
+    startTransition(async () => {
+      try {
+        await deleteExamAction({ examId });
+        router.replace(routes.adminDashboard);
+        router.refresh();
+      } catch (error) {
+        setSubmitError(error instanceof Error ? error.message : "시험 삭제에 실패했습니다.");
+      }
+    });
   };
 
   return (
@@ -429,9 +471,16 @@ export function AdminExamEditorForm({ mode, examId, initialValues }: AdminExamEd
 
       {submitError ? <p className="text-sm text-red-700">{submitError}</p> : null}
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
-        {isSubmitting || isPending ? "저장 중..." : "시험 저장"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" disabled={isSubmitting || isPending}>
+          {isSubmitting || isPending ? "저장 중..." : "시험 저장"}
+        </Button>
+        {mode === "edit" && examId ? (
+          <Button type="button" variant="outline" disabled={isSubmitting || isPending} onClick={handleDeleteExam}>
+            시험 삭제
+          </Button>
+        ) : null}
+      </div>
     </form>
   );
 }
