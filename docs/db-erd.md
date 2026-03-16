@@ -76,6 +76,7 @@
 #### `question_images`
 - 문제 이미지 경로 저장
 - 이미지는 Supabase Storage 버킷에 있고, 여기에는 경로만 저장합니다
+- 현재 문제 이미지는 공개 버킷 `question-images` 를 사용합니다
 
 주요 컬럼:
 - `id`
@@ -179,6 +180,7 @@
 - `explanation_snapshot`
 - `explanation_video_url_snapshot`
 - `image_paths_snapshot`
+- `work_image_path_snapshot`
 - `selected_answer`
 - `is_correct`
 
@@ -189,6 +191,15 @@
 왜 문항 snapshot을 남기나:
 - 시험 문항이 나중에 수정되어도
 - 예전 응시 결과는 당시 기준 문항/보기/정답/해설을 그대로 보여줘야 하기 때문입니다
+
+#### 손풀이 이미지 저장 방식
+- 학생이 문제 풀이 화면에서 첨부하는 손풀이 이미지는 Supabase Storage 공개 버킷 `attempt-work-images` 에 저장됩니다
+- 업로드 경로는 `draft-attempts/{clientDraftId}/{questionId}/{uuid}-{filename}` 형식입니다
+- 제출 시 실제 저장 경로는 `attempt_answers.work_image_path_snapshot` 에 문항별로 고정됩니다
+
+왜 별도 snapshot 경로를 남기나:
+- 결과 리뷰 화면에서 당시 손풀이 이미지를 다시 보여주기 위해서입니다
+- 시험 풀이 중 문항 이동/새로고침 후에도 같은 풀이 세션 안에서는 이어서 볼 수 있도록 클라이언트 상태와 함께 사용합니다
 
 #### `attempt_deletion_logs`
 - 응시 결과 삭제 시 백업 스냅샷
@@ -230,24 +241,29 @@ exams
 3. 각 과목에 문제와 보기, 정답, 해설, 이미지, 해설 영상을 저장
 
 ### 반 관리
-1. 관리자가 `연도`, `반 이름`, `기수`를 각각 생성
-2. 실제 사용할 조합을 `class_groups`로 등록
-3. 학생은 이 조합을 합쳐진 형태로 선택
+1. 관리자가 대시보드에서 `연도 + 반 이름 + 기수`를 한 번에 입력해 실제 반 조합을 생성
+2. 내부적으로는 `class_years`, `class_names`, `class_cohorts`, `class_groups` 구조로 저장
+3. 학생은 이 조합을 `2026-1 전기A반` 같은 합쳐진 형태로 선택
 
 ### 시험 제출
 1. 학생이 시험 풀이 완료
-2. 제출 시 `반 + 이름` 입력
-3. `attempts` 생성
-4. `attempt_subjects`, `attempt_answers` 생성
-5. `finalize_attempt()`가 과목 점수/총점/합격 여부 계산
+2. 손풀이 이미지는 브라우저에서 자동 압축 후 `attempt-work-images` 버킷에 즉시 업로드
+3. 제출 시 `반 + 이름` 입력
+4. `attempts` 생성
+5. `attempt_subjects`, `attempt_answers` 생성
+6. `attempt_answers`에는 문항/보기/정답/해설/손풀이 이미지 경로가 snapshot 으로 저장
+7. `finalize_attempt()`가 과목 점수/총점/합격 여부 계산
 
 ### 결과 조회
 1. 학생이 `반 + 이름`으로 조회
 2. `attempts`에서 일치하는 기록 검색
-3. 상세 페이지에서 `attempt_subjects`, `attempt_answers` 스냅샷 기반으로 리뷰 표시
+3. 상세 페이지에서 먼저 통합 점수와 과목별 점수 표시
+4. `문항 리뷰 시작하기` 이후 `attempt_subjects`, `attempt_answers` 스냅샷 기반으로 문제풀이형 리뷰 표시
+5. 필요 시 손풀이 이미지와 해설 영상 URL도 다시 확인 가능
 
 ## 현재 설계의 장점
 - 학생 로그인 없이도 반 기준 결과 조회 가능
 - 관리자 입장에서 반별 결과 집계가 쉬움
 - 시험/문항이 수정되어도 예전 결과가 깨지지 않음
 - 반 이름 구조를 마스터 + 조합으로 나눠 관리할 수 있어 운영이 안정적임
+- 손풀이 이미지도 결과 스냅샷에 연결되어 리뷰 재현성이 높음

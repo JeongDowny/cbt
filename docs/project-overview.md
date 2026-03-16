@@ -23,6 +23,7 @@
   - 문제 랜덤
   - 문항 수
 - 시험 풀이
+- 문제별 손풀이 이미지 첨부
 - 제출 시 `반 선택 + 이름` 입력
 - 자동 채점
 - 즉시 결과 보기
@@ -37,11 +38,9 @@
 - 정답 선택
 - 문제 이미지 업로드
 - 해설 / 해설 영상 URL 입력
+- 시험 삭제
 - 반 관리
-  - 연도
-  - 반 이름
-  - 기수
-  - 실제 반 조합
+  - `연도 + 반 이름 + 기수` 조합 입력
 - 반별 응시 결과 조회
 
 ## 라우트 구조
@@ -79,6 +78,7 @@
 역할:
 - 서비스 소개
 - `시험 선택`, `결과 조회` 빠른 진입
+- 모바일에서는 관리자 안내 카드 숨김
 
 ### 2. 시험 선택
 파일:
@@ -104,6 +104,9 @@
 - 진행률 표시
 - 시간 제한 처리
 - 답안 선택
+- 해설 영상 URL 확인
+- 손풀이 이미지 첨부
+- 손풀이 이미지 1MB 이하 자동 압축 후 스토리지 업로드
 - 제출 시 `반 선택 + 이름` 입력
 
 ### 4. 결과 조회
@@ -123,8 +126,8 @@
 역할:
 - 점수 / 합격 여부 표시
 - 과목별 점수 표시
-- 과목별 접기/펼치기 리뷰
-- 내 답 / 정답 / 해설 / 해설 영상 표시
+- `문항 리뷰 시작하기` 이후 문제풀이형 리뷰 화면 진입
+- 내 답 / 정답 / 해설 / 해설 영상 / 손풀이 이미지 표시
 
 ### 6. 관리자 로그인
 파일:
@@ -140,10 +143,10 @@
 - [actions.ts](/Users/jeongdaun/source/cbt/src/features/admin/actions.ts)
 
 역할:
-- 반 기본 항목 관리
-- 반 조합 관리
+- 반 조합 생성/삭제
 - 반별 응시 결과 보기
 - 최근 시험 목록 보기
+- 모바일에서는 직접 URL 접근만 가능하고, 학생 화면에서 진입 CTA는 숨김
 
 ### 8. 관리자 시험 생성 / 수정
 파일:
@@ -162,6 +165,7 @@
 - 이미지 업로드
 - 해설/해설 영상 입력
 - 공개 여부 설정
+- 이름 확인 후 시험 삭제
 
 ## 폴더 구조 설명
 
@@ -182,6 +186,7 @@ App Router 기준 페이지와 서버 액션이 있습니다.
 #### `features/exams`
 - 학생 시험 선택/풀이 UI
 - 시험 데이터 로딩
+- 손풀이 이미지 압축 유틸
 
 #### `features/reports`
 - 결과 조회 UI
@@ -220,6 +225,7 @@ App Router 기준 페이지와 서버 액션이 있습니다.
 - [server.ts](/Users/jeongdaun/source/cbt/src/lib/supabase/server.ts)
 - [client.ts](/Users/jeongdaun/source/cbt/src/lib/supabase/client.ts)
 - [public.ts](/Users/jeongdaun/source/cbt/src/lib/supabase/public.ts)
+- [storage.ts](/Users/jeongdaun/source/cbt/src/lib/supabase/storage.ts)
 - [utils.ts](/Users/jeongdaun/source/cbt/src/lib/utils.ts)
 
 ### `src/stores`
@@ -237,6 +243,7 @@ DB 기준 스키마와 마이그레이션 파일
 - [20260310_000004_promote_setup_schema.sql](/Users/jeongdaun/source/cbt/supabase/migrations/20260310_000004_promote_setup_schema.sql)
 - [20260316_000005_add_explanation_video_url.sql](/Users/jeongdaun/source/cbt/supabase/migrations/20260316_000005_add_explanation_video_url.sql)
 - [20260316_000006_add_class_groups_and_attempt_snapshots.sql](/Users/jeongdaun/source/cbt/supabase/migrations/20260316_000006_add_class_groups_and_attempt_snapshots.sql)
+- [20260316_000007_add_attempt_work_image_snapshot.sql](/Users/jeongdaun/source/cbt/supabase/migrations/20260316_000007_add_attempt_work_image_snapshot.sql)
 
 ### `docs`
 프로젝트 요구사항, 스타일, DB 구조 문서
@@ -246,6 +253,7 @@ DB 기준 스키마와 마이그레이션 파일
 - [style-guide.md](/Users/jeongdaun/source/cbt/docs/style-guide.md)
 - [task-order.md](/Users/jeongdaun/source/cbt/docs/task-order.md)
 - [db-erd.md](/Users/jeongdaun/source/cbt/docs/db-erd.md)
+- [project-overview.md](/Users/jeongdaun/source/cbt/docs/project-overview.md)
 
 ## 현재 핵심 서버 액션
 
@@ -257,7 +265,12 @@ DB 기준 스키마와 마이그레이션 파일
 - `submitAttemptAction`
   - 시험 제출 저장
   - `attempts`, `attempt_subjects`, `attempt_answers` 생성
+  - 손풀이 이미지 경로 snapshot 저장
   - `finalize_attempt` 호출
+- `uploadAttemptWorkImageAction`
+  - 손풀이 이미지 업로드
+- `deleteAttemptWorkImageAction`
+  - 손풀이 이미지 삭제
 - `getAttemptReportAction`
   - 결과 상세 조회
 - `lookupAttemptsAction`
@@ -269,9 +282,6 @@ DB 기준 스키마와 마이그레이션 파일
 
 포함 기능:
 - 로그아웃
-- 연도 추가/삭제
-- 반 이름 추가/삭제
-- 기수 추가/삭제
 - 반 조합 추가/삭제
 
 ### 관리자 시험 관리
@@ -281,6 +291,7 @@ DB 기준 스키마와 마이그레이션 파일
 포함 기능:
 - 문제 이미지 업로드
 - 시험 저장
+- 시험 삭제
 
 ## 데이터 구조 요약
 
@@ -318,6 +329,30 @@ DB 기준 스키마와 마이그레이션 파일
 - `시험 시작하기`
 - `결과 다시보기`
 - 우측 관리자 버튼
+
+추가 동작:
+- 모바일에서는 관리자 버튼 숨김
+- 학생용 주요 이동은 모바일에서도 그대로 노출
+
+## 스토리지 구조
+
+### 문제 이미지
+- 버킷: `question-images`
+- 용도: 관리자 문항 이미지 업로드
+
+### 손풀이 이미지
+- 버킷: `attempt-work-images`
+- 용도: 학생이 풀이 중 첨부하는 손풀이 이미지
+- 특징:
+  - 업로드 전 브라우저에서 1MB 이하로 자동 압축
+  - 제출 후 결과 리뷰에서 다시 표시
+
+## 최근 주요 UX 반영 사항
+- 결과 페이지는 점수 확인 후 `문항 리뷰 시작하기` 버튼을 눌러 리뷰를 시작하는 구조
+- 리뷰 화면은 문제풀이 화면과 유사한 좌/우 구조
+- 오답에서 내 선택은 빨간색, 정답은 초록색으로 표시
+- 시험 풀이 화면은 모바일에서도 문제/현황/버튼이 무리 없이 보이도록 조정
+- 관리자 관련 진입은 모바일 학생 화면에서 숨김 처리
 
 ### 페이지 공통 셸
 파일:
