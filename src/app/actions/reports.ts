@@ -79,7 +79,7 @@ export async function submitAttemptAction(input: {
   const subjectIds = Array.from(new Set(typedQuestions.map((question) => question.exam_subject_id)));
   const { data: subjects, error: subjectError } = await supabase
     .from("exam_subjects")
-    .select("id, exam_id, name")
+    .select("id, exam_id, name, subject_order")
     .in("id", subjectIds);
 
   if (subjectError) {
@@ -112,10 +112,15 @@ export async function submitAttemptAction(input: {
 
   const attemptId = attempt.id;
 
+  const orderedSubjectIds = (subjects ?? [])
+    .slice()
+    .sort((a, b) => a.subject_order - b.subject_order)
+    .map((subject) => subject.id);
+
   const { data: insertedSubjects, error: attemptSubjectsError } = await supabase
     .from("attempt_subjects")
     .insert(
-      subjectIds.map((subjectId) => ({
+      orderedSubjectIds.map((subjectId) => ({
         attempt_id: attemptId,
         exam_subject_id: subjectId,
         subject_name_snapshot: subjectMap.get(subjectId)?.name ?? "미분류",
@@ -201,20 +206,28 @@ export async function getAttemptReportAction(attemptId: string): Promise<Attempt
 
   const { data: subjects } = await supabase
     .from("attempt_subjects")
-    .select("id, subject_name_snapshot, score, passed")
+    .select("id, exam_subject_id, subject_name_snapshot, score, passed")
     .eq("attempt_id", attemptId)
     .order("created_at", { ascending: true });
+
+  const examSubjectIds = Array.from(new Set((subjects ?? []).map((subject) => subject.exam_subject_id)));
+  const { data: examSubjects } = examSubjectIds.length
+    ? await supabase.from("exam_subjects").select("id, subject_order").in("id", examSubjectIds)
+    : { data: [] };
+
+  const examSubjectOrderMap = new Map((examSubjects ?? []).map((subject) => [subject.id, subject.subject_order]));
 
   const { data: answers } = await supabase
     .from("attempt_answers")
     .select(
-      "id, question_no, subject_name_snapshot, stem_snapshot, choice_1_snapshot, choice_2_snapshot, choice_3_snapshot, choice_4_snapshot, correct_answer_snapshot, selected_answer, is_correct, explanation_snapshot, image_paths_snapshot"
+      "id, attempt_subject_id, question_no, subject_name_snapshot, stem_snapshot, choice_1_snapshot, choice_2_snapshot, choice_3_snapshot, choice_4_snapshot, correct_answer_snapshot, selected_answer, is_correct, explanation_snapshot, image_paths_snapshot"
     )
     .in("attempt_subject_id", (subjects ?? []).map((subject) => subject.id))
     .order("question_no", { ascending: true });
 
   const reviews: AttemptAnswerReview[] = (answers ?? []).map((answer) => ({
     id: answer.id,
+    attemptSubjectId: answer.attempt_subject_id,
     questionNo: answer.question_no,
     subjectName: answer.subject_name_snapshot,
     stem: answer.stem_snapshot,
@@ -245,12 +258,19 @@ export async function getAttemptReportAction(attemptId: string): Promise<Attempt
     correctCount,
     totalQuestions: reviews.length,
     submittedAt: attempt.submitted_at,
-    subjects: (subjects ?? []).map((subject) => ({
-      id: subject.id,
-      subjectName: subject.subject_name_snapshot,
-      score: Number(subject.score),
-      passed: subject.passed,
-    })),
+    subjects: (subjects ?? [])
+      .slice()
+      .sort(
+        (a, b) =>
+          (examSubjectOrderMap.get(a.exam_subject_id) ?? Number.MAX_SAFE_INTEGER) -
+          (examSubjectOrderMap.get(b.exam_subject_id) ?? Number.MAX_SAFE_INTEGER)
+      )
+      .map((subject) => ({
+        id: subject.id,
+        subjectName: subject.subject_name_snapshot,
+        score: Number(subject.score),
+        passed: subject.passed,
+      })),
     reviews,
   };
 }

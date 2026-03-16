@@ -1,5 +1,6 @@
 export interface AttemptAnswerReview {
   id: string;
+  attemptSubjectId: string;
   questionNo: number;
   subjectName: string;
   stem: string;
