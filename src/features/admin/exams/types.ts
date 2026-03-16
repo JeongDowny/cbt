@@ -10,6 +10,7 @@ export type QuestionForm = {
   correctChoiceNo: 1 | 2 | 3 | 4;
   imagePath: string | null;
   explanation: string;
+  explanationVideoUrl: string;
   choices: QuestionChoiceForm[];
 };
 

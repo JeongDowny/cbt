@@ -232,6 +232,7 @@ export async function saveExamAction(payload: {
           choice_4: question.choices[3]?.content ?? "",
           correct_answer: question.correctChoiceNo,
           explanation: question.explanation,
+          explanation_video_url: question.explanationVideoUrl.trim() || null,
         })
         .select("id")
         .single();

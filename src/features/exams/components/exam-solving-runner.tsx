@@ -1,8 +1,5 @@
 "use client";
-
-import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 
 import { submitAttemptAction } from "@/app/actions/reports";
@@ -10,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { ClassGroupOption } from "@/features/classes/types";
 import type { SolveQuestion } from "@/features/exams/types";
 import { routes } from "@/lib/constants/routes";
 import { useExamSessionStore } from "@/stores/exam-session.store";
@@ -18,11 +16,12 @@ interface ExamSolvingRunnerProps {
   examId: string;
   examTitle: string;
   questions: SolveQuestion[];
+  classGroupOptions: ClassGroupOption[];
 }
 
 type SubmitIdentityValues = {
   userName: string;
-  birthDate: string;
+  classGroupId: string;
 };
 
 function formatRemain(seconds: number) {
@@ -41,8 +40,7 @@ function shuffled<T>(items: T[]) {
   return copy;
 }
 
-export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingRunnerProps) {
-  const router = useRouter();
+export function ExamSolvingRunner({ examId, examTitle, questions, classGroupOptions }: ExamSolvingRunnerProps) {
   const session = useExamSessionStore();
 
   const optionEnabled = session.examId === examId;
@@ -77,11 +75,13 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
   const {
     register,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<SubmitIdentityValues>({
     defaultValues: {
       userName: "",
-      birthDate: "",
+      classGroupId: classGroupOptions[0]?.id ?? "",
     },
   });
 
@@ -109,6 +109,16 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
     };
   }, [manualSubmitRequested, remainSeconds]);
 
+  useEffect(() => {
+    if (classGroupOptions.length === 0) {
+      return;
+    }
+
+    if (!getValues("classGroupId")) {
+      setValue("classGroupId", classGroupOptions[0].id, { shouldDirty: false });
+    }
+  }, [classGroupOptions, getValues, setValue]);
+
   const solvedCount = useMemo(() => Object.keys(answers).length, [answers]);
   const progressPercent = totalCount === 0 ? 0 : Math.round((solvedCount / totalCount) * 100);
   const currentQuestion = activeQuestions[currentIndex];
@@ -124,6 +134,10 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
       ...prev,
       [questionId]: choiceNo,
     }));
+
+    if (currentIndex < totalCount - 1) {
+      setCurrentIndex((prev) => Math.min(prev + 1, totalCount - 1));
+    }
   };
 
   const submitIdentity = (values: SubmitIdentityValues) => {
@@ -133,14 +147,13 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
       try {
         const result = await submitAttemptAction({
           examId,
+          classGroupId: values.classGroupId,
           userName: values.userName,
-          birthDate: values.birthDate,
           answers,
           questionIds: activeQuestions.map((question) => question.id),
         });
 
-        router.replace(routes.resultPage(result.attemptId));
-        router.refresh();
+        window.location.replace(routes.resultPage(result.attemptId));
       } catch (error) {
         setSaveError(error instanceof Error ? error.message : "결과 저장에 실패했습니다.");
       }
@@ -169,14 +182,25 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
     );
   }
 
-  if (submitRequested) {
+  if (classGroupOptions.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{timeoutReached ? "시험 시간이 종료되었습니다" : "답안 제출"}</CardTitle>
-          <CardDescription>이름과 생년월일을 입력하면 채점 후 결과 페이지로 이동합니다.</CardDescription>
+          <CardTitle>응시 정보를 선택할 수 없습니다</CardTitle>
+          <CardDescription>관리자가 아직 사용할 반 정보를 등록하지 않았습니다.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+      </Card>
+    );
+  }
+
+  if (submitRequested) {
+    return (
+        <Card>
+          <CardHeader>
+            <CardTitle>{timeoutReached ? "시험 시간이 종료되었습니다" : "답안 제출"}</CardTitle>
+            <CardDescription>이름과 반을 입력하면 채점 후 결과 페이지로 이동합니다.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
           <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm text-[var(--color-muted-foreground)]">
             <p>시험: {examTitle}</p>
             <p>
@@ -186,6 +210,23 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
 
           <form className="grid grid-cols-1 gap-4 md:max-w-md" onSubmit={handleSubmit(submitIdentity)}>
             <div className="space-y-2">
+              <Label htmlFor="classGroupId">반 선택</Label>
+              <select
+                id="classGroupId"
+                className="flex h-11 w-full rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm text-[var(--color-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+                {...register("classGroupId", { required: "반을 선택해 주세요." })}
+              >
+                <option value="">반을 선택해 주세요</option>
+                {classGroupOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {errors.classGroupId ? <p className="text-xs text-red-700">{errors.classGroupId.message}</p> : null}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="userName">이름</Label>
               <Input
                 id="userName"
@@ -193,22 +234,6 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
                 {...register("userName", { required: "이름을 입력해 주세요." })}
               />
               {errors.userName ? <p className="text-xs text-red-700">{errors.userName.message}</p> : null}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="birthDate">생년월일</Label>
-              <Input
-                id="birthDate"
-                type="date"
-                {...register("birthDate", {
-                  required: "생년월일을 입력해 주세요.",
-                  pattern: {
-                    value: /^\d{4}-\d{2}-\d{2}$/,
-                    message: "생년월일 형식을 확인해 주세요.",
-                  },
-                })}
-              />
-              {errors.birthDate ? <p className="text-xs text-red-700">{errors.birthDate.message}</p> : null}
             </div>
 
             {saveError ? <p className="text-sm text-red-700">{saveError}</p> : null}
@@ -347,10 +372,6 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
             <Button type="button" className="w-full" onClick={() => setManualSubmitRequested(true)}>
               시험 제출하기
             </Button>
-
-            <Link href={routes.resultLookup} className="block text-sm text-[var(--color-primary)] hover:underline">
-              기존 결과 조회
-            </Link>
           </CardContent>
         </Card>
       </aside>

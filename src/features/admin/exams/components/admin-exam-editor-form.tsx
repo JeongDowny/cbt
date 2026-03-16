@@ -24,6 +24,7 @@ function createQuestionTemplate() {
     correctChoiceNo: 1 as const,
     imagePath: null,
     explanation: "",
+    explanationVideoUrl: "",
     choices: [
       { choiceNo: 1 as const, content: "" },
       { choiceNo: 2 as const, content: "" },
@@ -164,6 +165,15 @@ function QuestionEditorCard({
             {...register(`subjects.${subjectIndex}.questions.${questionIndex}.explanation`)}
           />
         </div>
+
+        <div className="space-y-2">
+          <Label htmlFor={`question-explanation-video-url-${subjectIndex}-${questionIndex}`}>해설 영상 URL</Label>
+          <Input
+            id={`question-explanation-video-url-${subjectIndex}-${questionIndex}`}
+            placeholder="https://www.youtube.com/watch?v=..."
+            {...register(`subjects.${subjectIndex}.questions.${questionIndex}.explanationVideoUrl`)}
+          />
+        </div>
       </CardContent>
     </Card>
   );
@@ -203,23 +213,42 @@ function SubjectEditorCard({
     control,
     name: `subjects.${subjectIndex}.timeLimitMinutes`,
   });
+  const trimmedSubjectName = subjectName?.trim() || `과목 ${subjectIndex + 1}`;
+
+  const handleRemoveSubject = () => {
+    const confirmedName = window.prompt(`삭제하려면 과목명 "${trimmedSubjectName}" 을(를) 입력해 주세요.`, "");
+
+    if (confirmedName === null) {
+      return;
+    }
+
+    if (confirmedName.trim() !== trimmedSubjectName) {
+      window.alert("과목명이 일치하지 않아 삭제하지 않았습니다.");
+      return;
+    }
+
+    removeSubject();
+  };
 
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle>{subjectName?.trim() ? subjectName : `과목 ${subjectIndex + 1}`}</CardTitle>
+            <CardTitle>{trimmedSubjectName}</CardTitle>
             <CardDescription>
               문항 {questionFields.length}개 · 과목 제한시간 {timeLimitMinutes ?? 30}분
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={handleRemoveSubject}>
+              과목 삭제
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={() => append(createQuestionTemplate())}>
+              이 과목에 문항 추가
+            </Button>
             <Button type="button" variant="outline" size="sm" onClick={toggleCollapsed}>
               {collapsed ? "펼치기" : "접기"}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={removeSubject}>
-              과목 삭제
             </Button>
           </div>
         </div>
@@ -242,21 +271,9 @@ function SubjectEditorCard({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-4">
-            <div>
-              <p className="text-sm font-semibold text-[var(--color-foreground)]">
-                {subjectName?.trim() ? subjectName : `과목 ${subjectIndex + 1}`} 문항 관리
-              </p>
-              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">아래 버튼으로 이 과목에만 문항을 추가합니다.</p>
-            </div>
-            <Button type="button" variant="secondary" size="sm" onClick={() => append(createQuestionTemplate())}>
-              이 과목에 문항 추가
-            </Button>
-          </div>
-
           {questionFields.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-6 text-sm text-[var(--color-muted-foreground)]">
-              아직 등록된 문항이 없습니다. 위의 `이 과목에 문항 추가` 버튼으로 시작하세요.
+              아직 등록된 문항이 없습니다. 헤더의 `이 과목에 문항 추가` 버튼으로 시작하세요.
             </div>
           ) : (
             <div className="space-y-4">

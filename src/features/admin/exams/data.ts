@@ -45,7 +45,7 @@ export async function getExamFormValuesById(examId: string): Promise<AdminExamFo
   const { data: questions } = subjectIds.length
     ? await supabase
         .from("questions")
-        .select("id, exam_subject_id, question_no, stem, choice_1, choice_2, choice_3, choice_4, correct_answer, explanation")
+        .select("id, exam_subject_id, question_no, stem, choice_1, choice_2, choice_3, choice_4, correct_answer, explanation, explanation_video_url")
         .in("exam_subject_id", subjectIds)
         .order("question_no", { ascending: true })
     : { data: [] };
@@ -70,6 +70,7 @@ export async function getExamFormValuesById(examId: string): Promise<AdminExamFo
       correctChoiceNo: question.correct_answer as 1 | 2 | 3 | 4,
       imagePath: image?.image_path ?? null,
       explanation: question.explanation,
+      explanationVideoUrl: question.explanation_video_url ?? "",
       choices: [
         { choiceNo: 1, content: question.choice_1 },
         { choiceNo: 2, content: question.choice_2 },

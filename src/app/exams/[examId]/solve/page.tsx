@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { fetchClassGroupOptions } from "@/features/classes/data";
 import { ExamSolvingRunner } from "@/features/exams/components/exam-solving-runner";
 import { fetchSolveData } from "@/features/exams/data";
-import { PageShell } from "@/features/layout/components/page-shell";
 
 interface ExamSolvingPageProps {
   params: Promise<{ examId: string }>;
@@ -9,6 +9,7 @@ interface ExamSolvingPageProps {
 
 export default async function ExamSolvingPage({ params }: ExamSolvingPageProps) {
   const { examId } = await params;
+  const classGroupOptions = await fetchClassGroupOptions().catch(() => []);
   const result = await fetchSolveData(examId)
     .then((data) => ({ data, errorMessage: null as string | null }))
     .catch((error: unknown) => ({
@@ -17,16 +18,14 @@ export default async function ExamSolvingPage({ params }: ExamSolvingPageProps) 
     }));
 
   return (
-    <PageShell
-      badge="시험 풀이"
-      title="집중해서 문제를 풀어보세요"
-      description="문항을 읽고 답안을 선택한 뒤, 마지막에 이름과 생년월일을 입력해 결과를 저장합니다."
-      width="wide"
-      headerAlign="left"
-      density="compact"
-    >
+    <section className="mx-auto w-full max-w-[var(--page-max-width-wide)] px-5 pb-14 pt-6 md:px-6 md:pb-20 md:pt-8">
       {result.data ? (
-        <ExamSolvingRunner examId={examId} examTitle={result.data.examTitle} questions={result.data.questions} />
+        <ExamSolvingRunner
+          examId={examId}
+          examTitle={result.data.examTitle}
+          questions={result.data.questions}
+          classGroupOptions={classGroupOptions}
+        />
       ) : (
         <Card>
           <CardHeader>
@@ -36,6 +35,6 @@ export default async function ExamSolvingPage({ params }: ExamSolvingPageProps) 
           <CardContent className="text-sm text-[var(--color-muted-foreground)]">{result.errorMessage}</CardContent>
         </Card>
       )}
-    </PageShell>
+    </section>
   );
 }
