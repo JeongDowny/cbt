@@ -2,8 +2,11 @@
 
 import { createClient } from "@supabase/supabase-js";
 
+import { formatClassGroupLabel } from "@/features/classes/data";
 import type { AttemptAnswerReview, AttemptReport, LookupAttemptRow } from "@/features/reports/types";
 import type { Database } from "@/types/database";
+
+const LEGACY_BIRTH_DATE_FALLBACK = "1900-01-01";
 
 function createAdminClient() {
   const url = process.env.SUPABASE_URL;
@@ -34,20 +37,20 @@ function toPublicImageUrl(path: string): string {
 
 export async function submitAttemptAction(input: {
   examId: string;
+  classGroupId: string;
   userName: string;
-  birthDate: string;
   answers: Record<string, number>;
   questionIds: string[];
 }): Promise<{ attemptId: string }> {
   const userName = input.userName.trim();
-  const birthDate = input.birthDate.trim();
+  const classGroupId = input.classGroupId.trim();
 
   if (!userName) {
     throw new Error("이름을 입력해 주세요.");
   }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
-    throw new Error("생년월일 형식을 확인해 주세요.");
+  if (!classGroupId) {
+    throw new Error("반을 선택해 주세요.");
   }
 
   const questionIds = Array.from(new Set(input.questionIds));
@@ -57,14 +60,30 @@ export async function submitAttemptAction(input: {
 
   const supabase = createAdminClient();
 
-  const { data: exam } = await supabase.from("exams").select("id").eq("id", input.examId).maybeSingle();
+  const [{ data: exam }, { data: classGroup, error: classGroupError }] = await Promise.all([
+    supabase.from("exams").select("id").eq("id", input.examId).maybeSingle(),
+    supabase
+      .from("class_groups")
+      .select("id, class_years(year), class_names(name), class_cohorts(cohort_no)")
+      .eq("id", classGroupId)
+      .maybeSingle(),
+  ]);
+
   if (!exam) {
     throw new Error("시험 정보를 찾을 수 없습니다.");
   }
 
+  if (classGroupError) {
+    throw new Error(classGroupError.message);
+  }
+
+  if (!classGroup) {
+    throw new Error("선택한 반 정보를 찾을 수 없습니다.");
+  }
+
   const { data: questions, error: questionError } = await supabase
     .from("questions")
-    .select("id, exam_subject_id, question_no, stem, choice_1, choice_2, choice_3, choice_4, correct_answer, explanation")
+    .select("id, exam_subject_id, question_no, stem, choice_1, choice_2, choice_3, choice_4, correct_answer, explanation, explanation_video_url")
     .in("id", questionIds);
 
   if (questionError) {
@@ -99,8 +118,10 @@ export async function submitAttemptAction(input: {
     .from("attempts")
     .insert({
       exam_id: input.examId,
+      class_group_id: classGroupId,
       user_name: userName,
-      birth_date: birthDate,
+      // Legacy DBs may still require this column even though the UI no longer uses it.
+      birth_date: LEGACY_BIRTH_DATE_FALLBACK,
       status: "in_progress",
     })
     .select("id")
@@ -152,6 +173,7 @@ export async function submitAttemptAction(input: {
     choice_4_snapshot: question.choice_4,
     correct_answer_snapshot: question.correct_answer,
     explanation_snapshot: question.explanation,
+    explanation_video_url_snapshot: question.explanation_video_url,
     image_paths_snapshot: (images ?? [])
       .filter((image) => image.question_id === question.id)
       .map((image) => image.image_path),
@@ -180,7 +202,7 @@ export async function getAttemptReportAction(attemptId: string): Promise<Attempt
 
   const { data: attempt, error: attemptError } = await supabase
     .from("attempts")
-    .select("id, exam_id, user_name, birth_date, total_score, passed, submitted_at")
+    .select("id, exam_id, user_name, class_year_snapshot, class_name_snapshot, cohort_no_snapshot, total_score, passed, submitted_at")
     .eq("id", attemptId)
     .maybeSingle();
 
@@ -220,7 +242,7 @@ export async function getAttemptReportAction(attemptId: string): Promise<Attempt
   const { data: answers } = await supabase
     .from("attempt_answers")
     .select(
-      "id, attempt_subject_id, question_no, subject_name_snapshot, stem_snapshot, choice_1_snapshot, choice_2_snapshot, choice_3_snapshot, choice_4_snapshot, correct_answer_snapshot, selected_answer, is_correct, explanation_snapshot, image_paths_snapshot"
+      "id, attempt_subject_id, question_no, subject_name_snapshot, stem_snapshot, choice_1_snapshot, choice_2_snapshot, choice_3_snapshot, choice_4_snapshot, correct_answer_snapshot, selected_answer, is_correct, explanation_snapshot, explanation_video_url_snapshot, image_paths_snapshot"
     )
     .in("attempt_subject_id", (subjects ?? []).map((subject) => subject.id))
     .order("question_no", { ascending: true });
@@ -241,10 +263,15 @@ export async function getAttemptReportAction(attemptId: string): Promise<Attempt
     selectedAnswer: answer.selected_answer,
     isCorrect: answer.is_correct,
     explanation: answer.explanation_snapshot,
+    explanationVideoUrl: answer.explanation_video_url_snapshot,
     imagePaths: ((answer.image_paths_snapshot as string[] | null) ?? []).map((path) => toPublicImageUrl(path)),
   }));
 
   const correctCount = reviews.filter((review) => review.isCorrect).length;
+  const classLabel =
+    attempt.class_year_snapshot && attempt.class_name_snapshot && attempt.cohort_no_snapshot
+      ? formatClassGroupLabel(attempt.class_year_snapshot, attempt.cohort_no_snapshot, attempt.class_name_snapshot)
+      : "반 미지정";
 
   return {
     id: attempt.id,
@@ -252,7 +279,10 @@ export async function getAttemptReportAction(attemptId: string): Promise<Attempt
     examTitle: exam?.title ?? "시험",
     certificationName: certification?.name ?? "자격",
     userName: attempt.user_name,
-    birthDate: attempt.birth_date,
+    classLabel,
+    classYear: attempt.class_year_snapshot,
+    className: attempt.class_name_snapshot,
+    cohortNo: attempt.cohort_no_snapshot,
     score: Number(attempt.total_score),
     passed: attempt.passed,
     correctCount,
@@ -277,26 +307,26 @@ export async function getAttemptReportAction(attemptId: string): Promise<Attempt
 
 export async function lookupAttemptsAction(input: {
   userName: string;
-  birthDate: string;
+  classGroupId: string;
 }): Promise<LookupAttemptRow[]> {
   const userName = input.userName.trim();
-  const birthDate = input.birthDate.trim();
+  const classGroupId = input.classGroupId.trim();
 
   if (!userName) {
     throw new Error("이름을 입력해 주세요.");
   }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
-    throw new Error("생년월일 형식을 확인해 주세요.");
+  if (!classGroupId) {
+    throw new Error("반을 선택해 주세요.");
   }
 
   const supabase = createAdminClient();
 
   const { data: attempts, error } = await supabase
     .from("attempts")
-    .select("id, exam_id, total_score, passed, submitted_at")
+    .select("id, exam_id, class_year_snapshot, class_name_snapshot, cohort_no_snapshot, total_score, passed, submitted_at")
     .eq("user_name", userName)
-    .eq("birth_date", birthDate)
+    .eq("class_group_id", classGroupId)
     .eq("status", "submitted")
     .order("created_at", { ascending: false });
 
@@ -306,10 +336,7 @@ export async function lookupAttemptsAction(input: {
 
   const examIds = Array.from(new Set((attempts ?? []).map((attempt) => attempt.exam_id)));
   const { data: exams } = examIds.length
-    ? await supabase
-        .from("exams")
-        .select("id, title, certifications(name)")
-        .in("id", examIds)
+    ? await supabase.from("exams").select("id, title, certifications(name)").in("id", examIds)
     : { data: [] };
 
   const examMap = new Map(
@@ -326,6 +353,10 @@ export async function lookupAttemptsAction(input: {
     id: attempt.id,
     examTitle: examMap.get(attempt.exam_id)?.title ?? "시험",
     certificationName: examMap.get(attempt.exam_id)?.certification ?? "자격",
+    classLabel:
+      attempt.class_year_snapshot && attempt.class_name_snapshot && attempt.cohort_no_snapshot
+        ? formatClassGroupLabel(attempt.class_year_snapshot, attempt.cohort_no_snapshot, attempt.class_name_snapshot)
+        : "반 미지정",
     score: Number(attempt.total_score),
     passed: attempt.passed,
     submittedAt: attempt.submitted_at,

@@ -9,6 +9,7 @@ export interface AttemptAnswerReview {
   selectedAnswer: number | null;
   isCorrect: boolean;
   explanation: string;
+  explanationVideoUrl: string | null;
   imagePaths: string[];
 }
 
@@ -25,7 +26,10 @@ export interface AttemptReport {
   examTitle: string;
   certificationName: string;
   userName: string;
-  birthDate: string;
+  classLabel: string;
+  classYear: number | null;
+  className: string | null;
+  cohortNo: number | null;
   score: number;
   passed: boolean;
   correctCount: number;
@@ -39,6 +43,7 @@ export interface LookupAttemptRow {
   id: string;
   examTitle: string;
   certificationName: string;
+  classLabel: string;
   score: number;
   passed: boolean;
   submittedAt: string | null;

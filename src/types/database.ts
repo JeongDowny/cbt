@@ -24,6 +24,118 @@ export interface Database {
         };
         Relationships: [];
       };
+      class_years: {
+        Row: {
+          id: string;
+          year: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          year: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          year?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      class_names: {
+        Row: {
+          id: string;
+          name: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      class_cohorts: {
+        Row: {
+          id: string;
+          cohort_no: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          cohort_no: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          cohort_no?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      class_groups: {
+        Row: {
+          id: string;
+          class_year_id: string;
+          class_name_id: string;
+          class_cohort_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          class_year_id: string;
+          class_name_id: string;
+          class_cohort_id: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          class_year_id?: string;
+          class_name_id?: string;
+          class_cohort_id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "class_groups_class_cohort_id_fkey";
+            columns: ["class_cohort_id"];
+            isOneToOne: false;
+            referencedRelation: "class_cohorts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "class_groups_class_name_id_fkey";
+            columns: ["class_name_id"];
+            isOneToOne: false;
+            referencedRelation: "class_names";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "class_groups_class_year_id_fkey";
+            columns: ["class_year_id"];
+            isOneToOne: false;
+            referencedRelation: "class_years";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       exams: {
         Row: {
           id: string;
@@ -118,6 +230,7 @@ export interface Database {
           choice_4: string;
           correct_answer: number;
           explanation: string;
+          explanation_video_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -132,6 +245,7 @@ export interface Database {
           choice_4: string;
           correct_answer: number;
           explanation?: string;
+          explanation_video_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -146,6 +260,7 @@ export interface Database {
           choice_4?: string;
           correct_answer?: number;
           explanation?: string;
+          explanation_video_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -195,8 +310,12 @@ export interface Database {
         Row: {
           id: string;
           exam_id: string;
+          class_group_id: string | null;
+          class_year_snapshot: number | null;
+          class_name_snapshot: string | null;
+          cohort_no_snapshot: number | null;
           user_name: string;
-          birth_date: string;
+          birth_date: string | null;
           started_at: string;
           submitted_at: string | null;
           status: "in_progress" | "submitted" | "cancelled";
@@ -208,8 +327,12 @@ export interface Database {
         Insert: {
           id?: string;
           exam_id: string;
+          class_group_id?: string | null;
+          class_year_snapshot?: number | null;
+          class_name_snapshot?: string | null;
+          cohort_no_snapshot?: number | null;
           user_name: string;
-          birth_date: string;
+          birth_date?: string | null;
           started_at?: string;
           submitted_at?: string | null;
           status?: "in_progress" | "submitted" | "cancelled";
@@ -221,8 +344,12 @@ export interface Database {
         Update: {
           id?: string;
           exam_id?: string;
+          class_group_id?: string | null;
+          class_year_snapshot?: number | null;
+          class_name_snapshot?: string | null;
+          cohort_no_snapshot?: number | null;
           user_name?: string;
-          birth_date?: string;
+          birth_date?: string | null;
           started_at?: string;
           submitted_at?: string | null;
           status?: "in_progress" | "submitted" | "cancelled";
@@ -232,6 +359,13 @@ export interface Database {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "attempts_class_group_id_fkey";
+            columns: ["class_group_id"];
+            isOneToOne: false;
+            referencedRelation: "class_groups";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "attempts_exam_id_fkey";
             columns: ["exam_id"];
@@ -312,6 +446,7 @@ export interface Database {
           choice_4_snapshot: string;
           correct_answer_snapshot: number;
           explanation_snapshot: string;
+          explanation_video_url_snapshot: string | null;
           image_paths_snapshot: Json;
           selected_answer: number | null;
           is_correct: boolean;
@@ -331,6 +466,7 @@ export interface Database {
           choice_4_snapshot: string;
           correct_answer_snapshot: number;
           explanation_snapshot?: string;
+          explanation_video_url_snapshot?: string | null;
           image_paths_snapshot?: Json;
           selected_answer?: number | null;
           is_correct?: boolean;
@@ -350,6 +486,7 @@ export interface Database {
           choice_4_snapshot?: string;
           correct_answer_snapshot?: number;
           explanation_snapshot?: string;
+          explanation_video_url_snapshot?: string | null;
           image_paths_snapshot?: Json;
           selected_answer?: number | null;
           is_correct?: boolean;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition, useState } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 
 import { lookupAttemptsAction } from "@/app/actions/reports";
@@ -9,15 +9,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { ClassGroupOption } from "@/features/classes/types";
 import type { LookupAttemptRow } from "@/features/reports/types";
 import { routes } from "@/lib/constants/routes";
 
 type LookupValues = {
   name: string;
-  birthDate: string;
+  classGroupId: string;
 };
 
-export function ResultLookupForm() {
+interface ResultLookupFormProps {
+  classGroupOptions: ClassGroupOption[];
+}
+
+export function ResultLookupForm({ classGroupOptions }: ResultLookupFormProps) {
   const [rows, setRows] = useState<LookupAttemptRow[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -26,7 +31,12 @@ export function ResultLookupForm() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LookupValues>();
+  } = useForm<LookupValues>({
+    defaultValues: {
+      name: "",
+      classGroupId: classGroupOptions[0]?.id ?? "",
+    },
+  });
 
   const onSubmit = (values: LookupValues) => {
     setErrorMessage(null);
@@ -35,7 +45,7 @@ export function ResultLookupForm() {
       try {
         const result = await lookupAttemptsAction({
           userName: values.name,
-          birthDate: values.birthDate,
+          classGroupId: values.classGroupId,
         });
         setRows(result);
       } catch (error) {
@@ -50,30 +60,31 @@ export function ResultLookupForm() {
       <Card>
         <CardHeader>
           <CardTitle>조회 정보 입력</CardTitle>
-          <CardDescription>시험을 제출할 때 저장한 이름과 생년월일을 정확히 입력해 주세요.</CardDescription>
+          <CardDescription>시험을 제출할 때 저장한 반과 이름을 정확히 입력해 주세요.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <form className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_auto]" onSubmit={handleSubmit(onSubmit)}>
+          <form className="grid grid-cols-1 gap-4 md:grid-cols-[1.2fr_1fr_auto]" onSubmit={handleSubmit(onSubmit)}>
+            <div className="space-y-2">
+              <Label htmlFor="classGroupId">반 선택</Label>
+              <select
+                id="classGroupId"
+                className="flex h-11 w-full rounded-xl border border-[var(--color-border)] bg-white px-3 text-sm text-[var(--color-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"
+                {...register("classGroupId", { required: "반을 선택해 주세요." })}
+              >
+                <option value="">반을 선택해 주세요</option>
+                {classGroupOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {errors.classGroupId ? <p className="text-xs text-red-700">{errors.classGroupId.message}</p> : null}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">이름</Label>
               <Input id="name" placeholder="홍길동" {...register("name", { required: "이름을 입력해 주세요." })} />
               {errors.name ? <p className="text-xs text-red-700">{errors.name.message}</p> : null}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="birthDate">생년월일</Label>
-              <Input
-                id="birthDate"
-                type="date"
-                {...register("birthDate", {
-                  required: "생년월일을 입력해 주세요.",
-                  pattern: {
-                    value: /^\d{4}-\d{2}-\d{2}$/,
-                    message: "생년월일 형식을 확인해 주세요.",
-                  },
-                })}
-              />
-              {errors.birthDate ? <p className="text-xs text-red-700">{errors.birthDate.message}</p> : null}
             </div>
 
             <div className="flex items-end">
@@ -105,7 +116,7 @@ export function ResultLookupForm() {
                         {row.certificationName} · {row.examTitle}
                       </p>
                       <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                        {row.submittedAt ? new Date(row.submittedAt).toLocaleString() : "미제출"}
+                        {row.classLabel} · {row.submittedAt ? new Date(row.submittedAt).toLocaleString() : "미제출"}
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
