@@ -72,8 +72,6 @@ function QuestionEditorCard({
     name: `subjects.${subjectIndex}.questions.${questionIndex}.correctChoiceNo`,
   });
 
-  const correctChoiceRegister = register(`subjects.${subjectIndex}.questions.${questionIndex}.correctChoiceNo`, { valueAsNumber: true });
-
   const uploadImage = (file: File | null) => {
     if (!file) {
       setUploadError("업로드할 파일을 먼저 선택해 주세요.");
@@ -142,6 +140,7 @@ function QuestionEditorCard({
 
         <div className="space-y-3">
           <p className="text-sm font-medium text-[var(--color-foreground)]">선택지 및 정답</p>
+          <input type="hidden" {...register(`subjects.${subjectIndex}.questions.${questionIndex}.correctChoiceNo`, { valueAsNumber: true })} />
           {[0, 1, 2, 3].map((choiceIndex) => {
             const choiceNo = (choiceIndex + 1) as 1 | 2 | 3 | 4;
             return (
@@ -149,7 +148,18 @@ function QuestionEditorCard({
                 <span className="text-sm font-medium">{choiceNo}.</span>
                 <Input {...register(`subjects.${subjectIndex}.questions.${questionIndex}.choices.${choiceIndex}.content`, { required: true })} />
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="radio" value={choiceNo} checked={selectedChoiceNo === choiceNo} {...correctChoiceRegister} />
+                  <input
+                    type="radio"
+                    name={`question-correct-choice-${subjectIndex}-${questionIndex}`}
+                    value={choiceNo}
+                    checked={selectedChoiceNo === choiceNo}
+                    onChange={() =>
+                      setValue(`subjects.${subjectIndex}.questions.${questionIndex}.correctChoiceNo`, choiceNo, {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                      })
+                    }
+                  />
                   정답
                 </label>
               </div>
