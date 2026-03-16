@@ -21,5 +21,6 @@ export interface SolveQuestion {
   questionNo: number;
   stem: string;
   imagePaths: string[];
+  explanationVideoUrl: string | null;
   choices: SolveChoice[];
 }

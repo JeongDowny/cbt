@@ -1,12 +1,20 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import { createClient } from "@supabase/supabase-js";
 
 import { formatClassGroupLabel } from "@/features/classes/data";
 import type { AttemptAnswerReview, AttemptReport, LookupAttemptRow } from "@/features/reports/types";
+import { toSupabasePublicStorageUrl } from "@/lib/supabase/storage";
 import type { Database } from "@/types/database";
 
 const LEGACY_BIRTH_DATE_FALLBACK = "1900-01-01";
+const ATTEMPT_WORK_IMAGES_BUCKET = "attempt-work-images";
+
+function sanitizeFileName(fileName: string) {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
 
 function createAdminClient() {
   const url = process.env.SUPABASE_URL;
@@ -21,18 +29,49 @@ function createAdminClient() {
   });
 }
 
-function toPublicImageUrl(path: string): string {
-  if (path.startsWith("http://") || path.startsWith("https://")) {
-    return path;
+export async function uploadAttemptWorkImageAction(formData: FormData): Promise<{ path: string; publicUrl: string }> {
+  const file = formData.get("file");
+  const draftId = String(formData.get("draftId") ?? "").trim();
+  const questionId = String(formData.get("questionId") ?? "").trim();
+
+  if (!(file instanceof File)) {
+    throw new Error("업로드할 손풀이 이미지가 없습니다.");
   }
 
-  const url = process.env.SUPABASE_URL;
-  if (!url) {
-    return path;
+  if (!draftId || !questionId) {
+    throw new Error("손풀이 업로드 정보가 올바르지 않습니다.");
   }
 
-  const normalized = path.replace(/^\/+/, "");
-  return `${url}/storage/v1/object/public/question-images/${normalized}`;
+  const safeName = sanitizeFileName(file.name);
+  const path = `draft-attempts/${draftId}/${questionId}/${randomUUID()}-${safeName}`;
+  const supabase = createAdminClient();
+
+  const { error } = await supabase.storage.from(ATTEMPT_WORK_IMAGES_BUCKET).upload(path, file, {
+    contentType: file.type,
+    upsert: true,
+  });
+
+  if (error) {
+    throw new Error(`손풀이 이미지 업로드 실패: ${error.message}`);
+  }
+
+  return {
+    path,
+    publicUrl: toSupabasePublicStorageUrl(ATTEMPT_WORK_IMAGES_BUCKET, path) ?? path,
+  };
+}
+
+export async function deleteAttemptWorkImageAction(formData: FormData): Promise<void> {
+  const path = String(formData.get("path") ?? "").trim();
+  if (!path) {
+    return;
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.storage.from(ATTEMPT_WORK_IMAGES_BUCKET).remove([path]);
+  if (error) {
+    throw new Error(`손풀이 이미지 삭제 실패: ${error.message}`);
+  }
 }
 
 export async function submitAttemptAction(input: {
@@ -41,6 +80,7 @@ export async function submitAttemptAction(input: {
   userName: string;
   answers: Record<string, number>;
   questionIds: string[];
+  workImagePaths: Record<string, string | null>;
 }): Promise<{ attemptId: string }> {
   const userName = input.userName.trim();
   const classGroupId = input.classGroupId.trim();
@@ -177,6 +217,7 @@ export async function submitAttemptAction(input: {
     image_paths_snapshot: (images ?? [])
       .filter((image) => image.question_id === question.id)
       .map((image) => image.image_path),
+    work_image_path_snapshot: input.workImagePaths[question.id] ?? null,
     selected_answer: input.answers[question.id] ?? null,
     answered_at: input.answers[question.id] ? new Date().toISOString() : null,
   }));
@@ -242,7 +283,7 @@ export async function getAttemptReportAction(attemptId: string): Promise<Attempt
   const { data: answers } = await supabase
     .from("attempt_answers")
     .select(
-      "id, attempt_subject_id, question_no, subject_name_snapshot, stem_snapshot, choice_1_snapshot, choice_2_snapshot, choice_3_snapshot, choice_4_snapshot, correct_answer_snapshot, selected_answer, is_correct, explanation_snapshot, explanation_video_url_snapshot, image_paths_snapshot"
+      "id, attempt_subject_id, question_no, subject_name_snapshot, stem_snapshot, choice_1_snapshot, choice_2_snapshot, choice_3_snapshot, choice_4_snapshot, correct_answer_snapshot, selected_answer, is_correct, explanation_snapshot, explanation_video_url_snapshot, image_paths_snapshot, work_image_path_snapshot"
     )
     .in("attempt_subject_id", (subjects ?? []).map((subject) => subject.id))
     .order("question_no", { ascending: true });
@@ -264,7 +305,11 @@ export async function getAttemptReportAction(attemptId: string): Promise<Attempt
     isCorrect: answer.is_correct,
     explanation: answer.explanation_snapshot,
     explanationVideoUrl: answer.explanation_video_url_snapshot,
-    imagePaths: ((answer.image_paths_snapshot as string[] | null) ?? []).map((path) => toPublicImageUrl(path)),
+    imagePaths: ((answer.image_paths_snapshot as string[] | null) ?? []).map(
+      (path) => toSupabasePublicStorageUrl("question-images", path) ?? path
+    ),
+    workImagePath: answer.work_image_path_snapshot,
+    workImageUrl: toSupabasePublicStorageUrl(ATTEMPT_WORK_IMAGES_BUCKET, answer.work_image_path_snapshot),
   }));
 
   const correctCount = reviews.filter((review) => review.isCorrect).length;

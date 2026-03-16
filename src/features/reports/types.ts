@@ -11,6 +11,8 @@ export interface AttemptAnswerReview {
   explanation: string;
   explanationVideoUrl: string | null;
   imagePaths: string[];
+  workImagePath: string | null;
+  workImageUrl: string | null;
 }
 
 export interface AttemptSubjectSummary {

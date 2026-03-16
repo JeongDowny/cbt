@@ -38,6 +38,7 @@ export function ResultReviewRunner({ report }: ResultReviewRunnerProps) {
   const solvedCount = orderedReviews.length;
   const correctCount = orderedReviews.filter((review) => review.isCorrect).length;
   const progressPercent = solvedCount === 0 ? 0 : Math.round(((currentIndex + 1) / solvedCount) * 100);
+  const wrongCount = report.totalQuestions - report.correctCount;
 
   if (orderedReviews.length === 0) {
     return (
@@ -53,15 +54,64 @@ export function ResultReviewRunner({ report }: ResultReviewRunnerProps) {
   return (
     <div className="space-y-4">
       {!started ? (
-        <div className="flex justify-center">
-          <Button type="button" size="lg" onClick={() => setStarted(true)}>
-            문항 리뷰 시작하기
-          </Button>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {report.certificationName} · {report.examTitle}
+              </CardTitle>
+              <CardDescription>
+                {report.classLabel} · {report.userName} · {report.submittedAt ? new Date(report.submittedAt).toLocaleString() : "미제출"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+                <div className="rounded-2xl border border-[var(--color-border)] bg-white p-4">
+                  <p className="text-sm text-[var(--color-muted-foreground)]">점수</p>
+                  <p className="text-2xl font-semibold">{report.score}</p>
+                </div>
+                <div className="rounded-2xl border border-[var(--color-border)] bg-white p-4">
+                  <p className="text-sm text-[var(--color-muted-foreground)]">정답</p>
+                  <p className="text-2xl font-semibold">{report.correctCount}</p>
+                </div>
+                <div className="rounded-2xl border border-[var(--color-border)] bg-white p-4">
+                  <p className="text-sm text-[var(--color-muted-foreground)]">오답</p>
+                  <p className="text-2xl font-semibold">{wrongCount}</p>
+                </div>
+                <div className="rounded-2xl border border-[var(--color-border)] bg-white p-4">
+                  <p className="text-sm text-[var(--color-muted-foreground)]">합격 여부</p>
+                  <p className={report.passed ? "text-2xl font-semibold text-[var(--color-success)]" : "text-2xl font-semibold text-[var(--color-danger)]"}>
+                    {report.passed ? "합격" : "불합격"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">과목별 점수</p>
+                <ul className="space-y-2">
+                  {report.subjects.map((subject) => (
+                    <li key={subject.id} className="flex items-center justify-between rounded-2xl border border-[var(--color-border)] bg-white px-4 py-3 text-sm">
+                      <span>{subject.subjectName}</span>
+                      <span className={subject.passed ? "font-semibold text-[var(--color-success)]" : "font-semibold text-[var(--color-danger)]"}>
+                        {subject.score}점 ({subject.passed ? "통과" : "과락"})
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-center">
+            <Button type="button" size="lg" onClick={() => setStarted(true)}>
+              문항 리뷰 시작하기
+            </Button>
+          </div>
         </div>
       ) : null}
 
       {started && currentReview ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <section className="space-y-4">
             <Card>
               <CardHeader className="space-y-4">
@@ -82,7 +132,7 @@ export function ResultReviewRunner({ report }: ResultReviewRunnerProps) {
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-semibold leading-9">
+                  <h2 className="text-xl font-semibold leading-8 md:text-2xl md:leading-9">
                     {currentReview.questionNo}. {currentReview.stem}
                   </h2>
                   {currentReview.imagePaths.map((imagePath, index) => (
@@ -103,7 +153,7 @@ export function ResultReviewRunner({ report }: ResultReviewRunnerProps) {
                       <div
                         key={`${currentReview.id}-${choice.no}`}
                         className={[
-                          "flex items-start gap-3 rounded-2xl border px-4 py-4 text-sm",
+                          "flex items-start gap-3 rounded-2xl border px-3 py-3 text-sm md:px-4 md:py-4",
                           isCorrectChoice
                             ? "border-emerald-200 bg-emerald-50"
                             : isWrongUserChoice
@@ -158,11 +208,21 @@ export function ResultReviewRunner({ report }: ResultReviewRunnerProps) {
                     </p>
                   </div>
                 ) : null}
+
+                {currentReview.workImageUrl ? (
+                  <div className="rounded-2xl border border-[var(--color-border)] bg-white p-4">
+                    <p className="text-sm font-semibold">내 손풀이</p>
+                    <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={currentReview.workImageUrl} alt={`문항 ${currentReview.questionNo} 손풀이 이미지`} className="h-auto max-h-[420px] w-full object-contain" />
+                    </div>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 
-            <div className="flex items-center justify-between">
-              <Button type="button" variant="outline" onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))} disabled={currentIndex === 0}>
+            <div className="grid grid-cols-2 gap-3">
+              <Button type="button" variant="outline" onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))} disabled={currentIndex === 0} className="w-full">
                 이전 문제
               </Button>
               <Button
@@ -170,6 +230,7 @@ export function ResultReviewRunner({ report }: ResultReviewRunnerProps) {
                 variant="outline"
                 onClick={() => setCurrentIndex((prev) => Math.min(orderedReviews.length - 1, prev + 1))}
                 disabled={currentIndex >= orderedReviews.length - 1}
+                className="w-full"
               >
                 다음 문제
               </Button>
@@ -199,7 +260,7 @@ export function ResultReviewRunner({ report }: ResultReviewRunnerProps) {
                   정답 {correctCount}개 · 오답 {orderedReviews.length - correctCount}개
                 </div>
 
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
                   {orderedReviews.map((review, index) => {
                     const isCurrent = index === currentIndex;
 

@@ -448,6 +448,7 @@ export interface Database {
           explanation_snapshot: string;
           explanation_video_url_snapshot: string | null;
           image_paths_snapshot: Json;
+          work_image_path_snapshot: string | null;
           selected_answer: number | null;
           is_correct: boolean;
           answered_at: string | null;
@@ -468,6 +469,7 @@ export interface Database {
           explanation_snapshot?: string;
           explanation_video_url_snapshot?: string | null;
           image_paths_snapshot?: Json;
+          work_image_path_snapshot?: string | null;
           selected_answer?: number | null;
           is_correct?: boolean;
           answered_at?: string | null;
@@ -488,6 +490,7 @@ export interface Database {
           explanation_snapshot?: string;
           explanation_video_url_snapshot?: string | null;
           image_paths_snapshot?: Json;
+          work_image_path_snapshot?: string | null;
           selected_answer?: number | null;
           is_correct?: boolean;
           answered_at?: string | null;

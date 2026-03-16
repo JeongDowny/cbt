@@ -220,6 +220,7 @@ create table if not exists public.attempt_answers (
   explanation_snapshot text not null default '',
   explanation_video_url_snapshot text,
   image_paths_snapshot jsonb not null default '[]'::jsonb,
+  work_image_path_snapshot text,
 
   selected_answer smallint check (selected_answer between 1 and 4),
   is_correct boolean not null default false,

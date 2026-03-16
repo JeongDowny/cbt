@@ -1,5 +1,6 @@
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { toSupabasePublicStorageUrl } from "@/lib/supabase/storage";
 import type { SolveQuestion } from "@/features/exams/types";
 
 interface ExamSubjectRow {
@@ -9,13 +10,7 @@ interface ExamSubjectRow {
 }
 
 function toImageUrl(pathOrUrl: string): string {
-  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
-    return pathOrUrl;
-  }
-
-  const supabase = createSupabasePublicClient();
-  const { data } = supabase.storage.from("question-images").getPublicUrl(pathOrUrl);
-  return data.publicUrl;
+  return toSupabasePublicStorageUrl("question-images", pathOrUrl) ?? pathOrUrl;
 }
 
 export async function fetchSolveData(examId: string): Promise<{ examTitle: string; questions: SolveQuestion[] }> {
@@ -57,7 +52,7 @@ export async function fetchSolveData(examId: string): Promise<{ examTitle: strin
 
   const { data: questions, error: questionError } = await supabase
     .from("questions")
-    .select("id, exam_subject_id, question_no, stem, choice_1, choice_2, choice_3, choice_4")
+    .select("id, exam_subject_id, question_no, stem, choice_1, choice_2, choice_3, choice_4, explanation_video_url")
     .in("exam_subject_id", subjectIds)
     .order("question_no", { ascending: true });
 
@@ -94,6 +89,7 @@ export async function fetchSolveData(examId: string): Promise<{ examTitle: strin
       questionNo: question.question_no,
       stem: question.stem,
       imagePaths: questionImages,
+      explanationVideoUrl: question.explanation_video_url,
       choices: [
         { no: 1, text: question.choice_1 },
         { no: 2, text: question.choice_2 },
