@@ -1,27 +1,110 @@
 @import "tailwindcss";
 
 :root {
-  --color-background: #f8fafc;
-  --color-foreground: #0f172a;
-  --color-surface-muted: #f1f5f9;
-  --color-border: #cbd5e1;
-  --color-muted-foreground: #475569;
-  --color-primary: #1d4ed8;
-  --color-primary-strong: #1e40af;
-  --color-secondary-bg: #e2e8f0;
-  --color-secondary-bg-hover: #cbd5e1;
-  --color-secondary-foreground: #0f172a;
-  --color-focus: #2563eb;
+  --color-background: #eef3fa;
+  --color-foreground: #183b71;
+  --color-surface: rgba(255, 255, 255, 0.92);
+  --color-surface-strong: #ffffff;
+  --color-surface-muted: #f6f9fd;
+  --color-border: #c8d6ea;
+  --color-border-strong: #7f9bc4;
+  --color-muted-foreground: #5d6f8e;
+  --color-primary: #244c8f;
+  --color-primary-strong: #193b74;
+  --color-primary-soft: #edf3ff;
+  --color-secondary-bg: #f4f7fc;
+  --color-secondary-bg-hover: #e6edf8;
+  --color-secondary-foreground: #24416d;
+  --color-disabled-bg: #a8b7cb;
+  --color-focus: #3f6db7;
+  --color-success: #1f6f52;
+  --color-danger: #b04452;
+  --page-max-width: 780px;
+  --page-max-width-wide: 1120px;
 }
 
 @theme inline {
   --font-sans: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
 }
 
+html {
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.9), transparent 36%),
+    linear-gradient(180deg, #edf2f9 0%, #eef3fa 45%, #e9eff8 100%);
+}
+
 * {
   border-color: var(--color-border);
 }
 
+*::selection {
+  background: rgba(36, 76, 143, 0.18);
+}
+
 body {
   min-height: 100vh;
+  color: var(--color-foreground);
+  background: transparent;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease;
+}
+
+@layer components {
+  .shell-section {
+    @apply rounded-[22px] border bg-white/90 shadow-[0_18px_40px_-28px_rgba(24,59,113,0.34)];
+    border-color: var(--color-border);
+    background-color: var(--color-surface);
+  }
+
+  .section-heading {
+    @apply mb-4 flex items-center gap-3 text-base font-semibold;
+    color: var(--color-foreground);
+  }
+
+  .section-heading::before {
+    content: "";
+    @apply h-5 w-1 rounded-full;
+    background-color: var(--color-primary);
+  }
+
+  .selection-tile {
+    @apply rounded-2xl border px-4 py-4 text-left;
+    border-color: var(--color-border);
+    background-color: var(--color-surface-strong);
+  }
+
+  .selection-tile-active {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-soft);
+    box-shadow: inset 0 0 0 1px rgba(36, 76, 143, 0.06);
+  }
+
+  .ui-select {
+    @apply flex h-11 w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none;
+    border-color: var(--color-border);
+    color: var(--color-foreground);
+  }
+
+  .ui-select:focus-visible {
+    box-shadow: 0 0 0 3px rgba(63, 109, 183, 0.18);
+    border-color: var(--color-focus);
+  }
+
+  .status-chip {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface-strong);
+    color: var(--color-secondary-foreground);
+  }
 }

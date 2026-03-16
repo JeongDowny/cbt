@@ -45,27 +45,27 @@ export function AdminLoginForm() {
   };
 
   return (
-    <Card className="max-w-md">
+    <Card className="mx-auto max-w-xl">
       <CardHeader>
-        <CardTitle>Admin Login</CardTitle>
-        <CardDescription>Supabase Auth 기반 관리자 로그인</CardDescription>
+        <CardTitle>관리자 계정 로그인</CardTitle>
+        <CardDescription>등록된 관리자 이메일과 비밀번호로 로그인해 시험 관리를 시작하세요.</CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">이메일</Label>
             <Input id="email" type="email" autoComplete="email" {...register("email", { required: true })} />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">비밀번호</Label>
             <Input id="password" type="password" autoComplete="current-password" {...register("password", { required: true })} />
           </div>
 
           {errorMessage ? <p className="text-sm text-red-700">{errorMessage}</p> : null}
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in..." : "Sign In"}
+            {isSubmitting ? "로그인 중..." : "로그인"}
           </Button>
         </form>
       </CardContent>

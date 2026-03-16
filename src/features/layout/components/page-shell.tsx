@@ -7,16 +7,55 @@ interface PageShellProps {
   description?: string;
   children?: ReactNode;
   className?: string;
+  badge?: string;
+  contentClassName?: string;
+  headerAlign?: "center" | "left";
+  density?: "default" | "compact";
+  width?: "default" | "wide" | "narrow";
 }
 
-export function PageShell({ title, description, children, className }: PageShellProps) {
+export function PageShell({
+  title,
+  description,
+  children,
+  className,
+  badge,
+  contentClassName,
+  headerAlign = "center",
+  density = "default",
+  width = "default",
+}: PageShellProps) {
+  const widthClassName =
+    width === "wide" ? "max-w-[var(--page-max-width-wide)]" : width === "narrow" ? "max-w-[640px]" : "max-w-[var(--page-max-width)]";
+
   return (
-    <section className={cn("mx-auto w-full max-w-5xl px-6 py-10", className)}>
-      <header className="mb-8 space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--color-foreground)]">{title}</h1>
+    <section className={cn("mx-auto w-full px-5 pb-14 pt-16 md:px-6 md:pb-20 md:pt-24", className)}>
+      <header
+        className={cn(
+          "mx-auto mb-8 space-y-4",
+          widthClassName,
+          headerAlign === "center" ? "text-center" : "text-left",
+          density === "compact" ? "mb-6 space-y-3" : "mb-8 space-y-4"
+        )}
+      >
+        {badge ? (
+          <div className={cn("flex", headerAlign === "center" ? "justify-center" : "justify-start")}>
+            <span className="inline-flex items-center rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-primary)] px-4 py-1.5 text-sm font-semibold text-white shadow-sm">
+              {badge}
+            </span>
+          </div>
+        ) : null}
+        <h1
+          className={cn(
+            "font-semibold tracking-tight text-[var(--color-foreground)]",
+            density === "compact" ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl"
+          )}
+        >
+          {title}
+        </h1>
         {description ? <p className="text-sm text-[var(--color-muted-foreground)]">{description}</p> : null}
       </header>
-      {children}
+      <div className={cn("mx-auto", widthClassName, contentClassName)}>{children}</div>
     </section>
   );
 }

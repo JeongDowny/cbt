@@ -17,7 +17,14 @@ export default async function ExamSolvingPage({ params }: ExamSolvingPageProps) 
     }));
 
   return (
-    <PageShell title="시험 풀이" description="문항을 읽고 답안을 선택한 뒤 제출하세요.">
+    <PageShell
+      badge="시험 풀이"
+      title="집중해서 문제를 풀어보세요"
+      description="문항을 읽고 답안을 선택한 뒤, 마지막에 이름과 생년월일을 입력해 결과를 저장합니다."
+      width="wide"
+      headerAlign="left"
+      density="compact"
+    >
       {result.data ? (
         <ExamSolvingRunner examId={examId} examTitle={result.data.examTitle} questions={result.data.questions} />
       ) : (

@@ -16,7 +16,13 @@ export default async function AdminLoginPage() {
   }
 
   return (
-    <PageShell title="Admin Login" description="관리자 계정으로 로그인해 시험 관리를 시작하세요.">
+    <PageShell
+      badge="관리자"
+      title="관리자 로그인"
+      description="관리자 계정으로 로그인해 시험 생성, 수정, 공개 상태 관리를 이어서 진행하세요."
+      width="narrow"
+      density="compact"
+    >
       <AdminLoginForm />
     </PageShell>
   );

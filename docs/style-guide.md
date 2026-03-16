@@ -1,150 +1,126 @@
 # Style Guide
 
-## Design Direction
-The product should feel:
-- calm
-- modern
-- clean
-- trustworthy
-- focused
+## 전체 분위기
+- 제품은 `밝은 회백 배경 + 짙은 네이비 텍스트 + 얇은 보더 + 정돈된 카드 섹션` 구조를 기본으로 한다.
+- 레퍼런스와의 유사도는 `구조와 톤` 중심이다. 완전 복제는 하지 않고, CBT 서비스 흐름에 맞게 변형한다.
+- 학생 화면은 중앙 집중형, 관리자 화면은 같은 톤을 유지하면서 정보 밀도를 조금 높인다.
 
-Avoid:
-- toy-like UI
-- overly playful visuals
-- excessive cards
-- visually noisy layouts
-- unnecessary decoration
+## 디자인 토큰
+- 배경: 아주 밝은 쿨그레이 계열
+- 기본 텍스트: 짙은 네이비
+- 강조색: 선명하지만 과하지 않은 블루
+- 보더: 푸른기 있는 연한 슬레이트
+- 비활성 CTA: 흐린 블루그레이
+- 성공/오류: 자극적이지 않은 녹색, 명확하지만 무겁지 않은 적색
 
----
+## 레이아웃 규칙
+- 모든 주요 페이지는 `상단 히어로 + 본문 카드 섹션` 구조를 사용한다.
+- 히어로는 다음 순서를 기본으로 한다:
+  - 작은 배지
+  - 큰 제목
+  - 보조 설명
+- 학생용 기본 폭은 좁고 집중된 중앙 레이아웃을 사용한다.
+- 풀이/결과/관리자 편집처럼 정보량이 많은 화면만 넓은 폭을 허용한다.
+- 카드 섹션 사이 간격은 넉넉하게 유지하고, 한 화면에는 하나의 주요 행동 흐름만 강조한다.
 
-## Layout Principles
-- Desktop-first responsive design
-- Clear visual hierarchy
-- Comfortable spacing
-- Focus on the active task
-- One obvious primary action per screen
+## 히어로 구조
+- 배지는 작은 라운드 직사각형으로 표시한다.
+- 제목은 한 줄 또는 두 줄로 또렷하게 읽혀야 한다.
+- 설명 문장은 짧고 차분하게 유지한다.
+- 홈, 시험 선택, 결과 조회, 관리자 로그인은 같은 히어로 구조를 공유한다.
 
-The exam solving screen should prioritize:
-- readability
-- low distraction
-- fast answer selection
-- easy navigation between questions
+## 섹션 카드 규칙
+- 카드 배경은 흰색에 가깝게 유지하되, 배경과 완전히 붙지 않도록 은은한 그림자와 보더를 준다.
+- 섹션 제목은 왼쪽 컬러 바가 있는 형태로 통일한다.
+- 카드 안에 또 카드를 과도하게 중첩하지 않는다.
+- 목록, 설정, 결과 요약은 각각 별도 카드 섹션으로 분리한다.
 
----
+## 선택 카드 규칙
+- 시험 선택, 결과 목록, 관리자 목록 같은 선택형 항목은 카드형 타일을 사용한다.
+- 선택 전 상태:
+  - 흰 배경
+  - 연한 보더
+  - 부드러운 hover
+- 선택 상태:
+  - 네이비 보더
+  - 은은한 블루 배경
+  - 제목 또는 메타 정보에 강조색 사용
 
-## Color Direction
-Use a bright navy-centered palette.
+## 버튼 규칙
+- 모든 버튼은 같은 보더 두께, 둥근 모서리, 포커스 링을 공유한다.
+- 기본 버튼:
+  - 네이비 배경
+  - 흰 텍스트
+  - 가장 중요한 행동에만 사용
+- 보조 버튼:
+  - 연한 배경
+  - 네이비 텍스트
+  - 선택 보조, 추가, 업로드 등에 사용
+- 아웃라인 버튼:
+  - 흰 배경
+  - 보더 강조
+  - 이전/다음/취소/로그아웃 같은 보조 행동에 사용
+- 전폭 CTA는 시험 시작, 제출, 저장처럼 흐름의 마지막 행동에만 사용한다.
 
-Suggested direction:
-- primary: bright navy
-- secondary: cool gray or soft slate
-- background: white or very light neutral
-- accent: restrained blue tones
-- danger/error: clear but not aggressive
-- success: calm and readable
+## 입력 요소 규칙
+- 입력, 선택창, 텍스트영역은 같은 높이, 반경, 보더 스타일을 공유한다.
+- 레이블은 항상 위에 둔다.
+- 검증 메시지는 짧고 친절하게 작성한다.
+- 학생 화면 입력은 가볍고 단순하게, 관리자 편집 화면은 조금 더 정보 밀도 있게 구성한다.
 
-Do not use:
-- saturated rainbow accents
-- candy-like colors
-- overly dark heavy UI unless requested later
+## 학생 화면 규칙
+- 홈:
+  - 빠른 시작 카드와 서비스 안내 카드를 분리한다.
+  - 학생의 첫 행동은 `시험 시작하기`가 되도록 한다.
+- 시험 선택:
+  - `시험 선택` 섹션과 `시험 옵션` 섹션을 분리한다.
+  - 주요 시험 선택은 카드형 목록이 우선이고, 드롭다운은 보조 제어로 둔다.
+  - 하단 CTA는 전체 폭으로 고정한다.
+- 시험 풀이:
+  - 상단 메타 정보와 타이머를 간단한 상태 칩으로 정리한다.
+  - 문제 본문은 한 번에 읽기 쉬운 넓이로 유지한다.
+  - 진행 현황 패널은 별도 카드로 분리한다.
+- 결과 조회:
+  - 입력 폼 카드와 결과 리스트 카드를 분리한다.
+- 결과 페이지:
+  - 점수 요약, 과목 점수, 문항 리뷰를 명확히 나눈다.
 
----
+## 관리자 화면 규칙
+- 학생 화면과 같은 색상/보더/타이포 시스템을 사용한다.
+- 상단 내비게이션은 간결하게 유지하고 영문 대신 한글 라벨을 우선한다.
+- 관리자 로그인은 학생 화면과 같은 히어로 구조를 쓰되 폭을 좁게 유지한다.
+- 시험 생성/수정은 `기본 정보`와 `문항 편집` 흐름이 자연스럽게 이어지도록 구성한다.
+- 관리자 화면에서는 장식보다 밀도와 가독성을 우선한다.
 
-## Typography
-Font feeling:
-- clean
-- modern
-- highly readable
-- professional
+## 타이포그래피
+- 기본 폰트는 가독성 높은 한글 산세리프를 사용한다.
+- 제목은 굵고 짧게, 본문은 차분하게 유지한다.
+- 보조 설명은 작은 크기와 muted 색상을 사용한다.
+- 긴 시험 풀이 문장에서도 줄 간격이 답답하지 않게 유지한다.
 
-Prefer:
-- sans-serif
-- medium visual density
-- strong readability for long exam sessions
+## 한국어 UX 문구 원칙
+- 학생 화면 문구는 부드럽고 직접적이어야 한다.
+- 관리자 화면 문구는 명확하고 간결해야 한다.
+- 가능한 한 한국어를 사용하고, 꼭 필요한 기술 용어만 영어를 허용한다.
+- 예시:
+  - `시험 시작하기`
+  - `저장된 시험 결과 조회`
+  - `학생 화면에 공개하기`
+- 피해야 할 표현:
+  - 지나치게 기계적인 시스템 문구
+  - 공격적이거나 사용자를 탓하는 오류 문구
 
-Use clear hierarchy:
-- page title
-- section title
-- question title
-- body text
-- helper text
+## 상태 화면
+- 비어 있음:
+  - 짧고 중립적으로 안내
+  - 다음 행동을 알 수 있게 작성
+- 로딩:
+  - 과한 애니메이션 없이 단순하게 처리
+- 오류:
+  - 원인을 짧게 알려 주고 다시 시도할 수 있게 작성
 
----
-
-## Components
-
-### Buttons
-- Slightly rounded corners
-- Clear primary vs secondary distinction
-- Large enough click targets
-- Strong focus states
-
-### Cards
-- Use only where structure benefits from grouping
-- Do not overuse cards
-- Keep borders and shadows subtle
-
-### Inputs
-- Clean and obvious labels
-- Comfortable padding
-- Gentle validation messages
-- Friendly helper text when needed
-
-### Question blocks
-- Strong separation between question text and choices
-- Choice items should be easy to scan
-- Keep image placement consistent
-- Avoid clutter around answer options
-
----
-
-## UX Writing
-Tone:
-- friendly
-- calm
-- simple
-- supportive
-
-Examples of style:
-- soft validation messages
-- clear action labels
-- no robotic system language unless necessary
-
-Prefer:
-- “Please enter your name”
-- “Select one answer”
-- “Your result has been saved”
-
-Avoid:
-- harsh warning language
-- overly technical wording on student-facing screens
-
----
-
-## Empty / Loading / Error States
-These are not the highest priority, but they should still be clean.
-
-### Empty states
-- brief and neutral
-- clearly explain what to do next
-
-### Loading states
-- simple
-- avoid unnecessary animation
-
-### Error states
-- polite
-- specific enough to guide correction
-- never blame the user
-
----
-
-## Recommended UI Stack
+## 구현 스택
 - Tailwind CSS
 - shadcn/ui
-
-Reason:
-- easy consistency
-- fast implementation
-- good accessibility foundation
-- flexible enough for a calm custom visual style
+- 공통 레이아웃은 `PageShell`
+- 공통 섹션 표현은 카드 섹션과 선택 타일을 재사용한다

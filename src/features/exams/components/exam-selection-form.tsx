@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { StudentExamOption } from "@/features/exams/types";
@@ -148,124 +148,140 @@ export function ExamSelectionForm({ exams, loadErrorMessage }: ExamSelectionForm
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>응시할 시험을 선택해 주세요</CardTitle>
-        <CardDescription>자격/시험/연도/회차를 고른 뒤 응시 옵션을 설정할 수 있습니다.</CardDescription>
-      </CardHeader>
+    <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+      <input type="hidden" {...register("examId", { required: true })} />
 
-      <CardContent>
-        {loadErrorMessage ? (
-          <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            시험 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
-          </p>
-        ) : null}
+      {loadErrorMessage ? (
+        <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          시험 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+        </p>
+      ) : null}
 
-        {exams.length === 0 ? (
-          <p className="text-sm text-[var(--color-muted-foreground)]">현재 선택 가능한 시험이 없습니다.</p>
-        ) : (
-          <form className="grid grid-cols-1 gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
-            <div className="space-y-2">
-              <Label htmlFor="certificationName">자격 선택</Label>
-              <select
-                id="certificationName"
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm"
-                {...register("certificationName", { required: true })}
-              >
-                {certifications.map((certification) => (
-                  <option key={certification} value={certification}>
-                    {certification}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {exams.length === 0 ? (
+        <Card>
+          <CardContent>
+            <p className="text-sm text-[var(--color-muted-foreground)]">현재 선택 가능한 시험이 없습니다.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <CardContent className="space-y-5">
+              <div className="section-heading">시험 선택</div>
 
-            <div className="space-y-2">
-              <Label htmlFor="examId">시험 선택</Label>
-              <select
-                id="examId"
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm"
-                {...register("examId", { required: true })}
-              >
-                {filteredByCertification.map((exam) => (
-                  <option key={exam.id} value={exam.id}>
-                    {exam.title}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="certificationName">자격 선택</Label>
+                  <select id="certificationName" className="ui-select" {...register("certificationName", { required: true })}>
+                    {certifications.map((certification) => (
+                      <option key={certification} value={certification}>
+                        {certification}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="examYear">연도</Label>
-              <select
-                id="examYear"
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm"
-                {...register("examYear", { valueAsNumber: true, required: true })}
-              >
-                {years.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="examYear">연도</Label>
+                  <select id="examYear" className="ui-select" {...register("examYear", { valueAsNumber: true, required: true })}>
+                    {years.map((year) => (
+                      <option key={year} value={year}>
+                        {year}년
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="examRound">회차</Label>
-              <select
-                id="examRound"
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm"
-                {...register("examRound", { valueAsNumber: true, required: true })}
-              >
-                {rounds.map((round) => (
-                  <option key={round} value={round}>
-                    {round}회차
-                  </option>
-                ))}
-              </select>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="examRound">회차</Label>
+                  <select id="examRound" className="ui-select" {...register("examRound", { valueAsNumber: true, required: true })}>
+                    {rounds.map((round) => (
+                      <option key={round} value={round}>
+                        {round}회차
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="timeLimitMinutes">제한 시간(분)</Label>
-              <Input
-                id="timeLimitMinutes"
-                type="number"
-                min={1}
-                {...register("timeLimitMinutes", {
-                  setValueAs: (value: string) => (value === "" ? null : Number(value)),
+              <div className="grid gap-3 md:grid-cols-2">
+                {filteredByCertification.map((exam) => {
+                  const selected = exam.id === examId;
+
+                  return (
+                    <button
+                      key={exam.id}
+                      type="button"
+                      onClick={() => {
+                        setValue("examId", exam.id, { shouldDirty: true });
+                        setValue("examYear", exam.examYear, { shouldDirty: true });
+                        setValue("examRound", exam.examRound, { shouldDirty: true });
+                      }}
+                      className={selected ? "selection-tile selection-tile-active" : "selection-tile"}
+                    >
+                      <p className="text-sm font-semibold text-[var(--color-primary)]">
+                        {exam.examYear}년 {exam.examRound}회차
+                      </p>
+                      <p className="mt-2 text-xl font-semibold">{exam.certificationName}</p>
+                      <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">{exam.title} · 기본 60분</p>
+                    </button>
+                  );
                 })}
-              />
-            </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="questionCount">문항 수</Label>
-              <Input
-                id="questionCount"
-                type="number"
-                min={1}
-                {...register("questionCount", {
-                  setValueAs: (value: string) => (value === "" ? null : Number(value)),
-                })}
-              />
-            </div>
+          <Card>
+            <CardContent className="space-y-5">
+              <div className="section-heading">시험 옵션</div>
 
-            <div className="md:col-span-2 flex items-center gap-2">
-              <input id="randomOrder" type="checkbox" className="h-4 w-4 rounded border-[var(--color-border)]" {...register("randomOrder")} />
-              <Label htmlFor="randomOrder">문항을 랜덤 순서로 표시</Label>
-            </div>
+              <div className="grid gap-4 md:grid-cols-[1fr_1fr_220px]">
+                <div className="space-y-2">
+                  <Label htmlFor="timeLimitMinutes">시간 제한</Label>
+                  <Input
+                    id="timeLimitMinutes"
+                    type="number"
+                    min={1}
+                    {...register("timeLimitMinutes", {
+                      setValueAs: (value: string) => (value === "" ? null : Number(value)),
+                    })}
+                  />
+                </div>
 
-            <div className="md:col-span-2">
-              <Button type="submit">시험 시작</Button>
-            </div>
-          </form>
-        )}
-      </CardContent>
+                <div className="space-y-2">
+                  <Label htmlFor="questionCount">문항 수</Label>
+                  <Input
+                    id="questionCount"
+                    type="number"
+                    min={1}
+                    {...register("questionCount", {
+                      setValueAs: (value: string) => (value === "" ? null : Number(value)),
+                    })}
+                  />
+                </div>
 
-      <CardFooter>
-        <Link href={routes.resultLookup} className="text-sm text-[var(--color-primary)] hover:underline">
-          이전 결과 조회하기
-        </Link>
-      </CardFooter>
-    </Card>
+                <div className="flex items-end">
+                  <label className="selection-tile flex w-full items-center gap-3 px-4 py-3">
+                    <input id="randomOrder" type="checkbox" className="h-4 w-4 rounded border-[var(--color-border)]" {...register("randomOrder")} />
+                    <span className="text-sm font-medium">문제 랜덤</span>
+                  </label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-3">
+            <Button type="submit" size="lg" className="w-full">
+              시험 시작하기
+            </Button>
+            <div className="text-center">
+              <Link href={routes.resultLookup} className="text-sm font-medium text-[var(--color-primary)] hover:underline">
+                이전 결과 조회하기
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
+    </form>
   );
 }

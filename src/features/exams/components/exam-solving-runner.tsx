@@ -177,7 +177,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
           <CardDescription>이름과 생년월일을 입력하면 채점 후 결과 페이지로 이동합니다.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm text-[var(--color-muted-foreground)]">
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 text-sm text-[var(--color-muted-foreground)]">
             <p>시험: {examTitle}</p>
             <p>
               응답한 문항: {solvedCount} / {totalCount}
@@ -213,7 +213,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
 
             {saveError ? <p className="text-sm text-red-700">{saveError}</p> : null}
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button type="submit" disabled={isPending}>
                 {isPending ? "저장 중..." : "채점 및 결과 저장"}
               </Button>
@@ -228,31 +228,30 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <section className="space-y-4">
         <Card>
-          <CardHeader className="space-y-3">
-            <div className="flex items-center justify-between gap-4">
+          <CardHeader className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <CardTitle>{examTitle}</CardTitle>
                 <CardDescription>
                   {currentQuestion.subjectName} · 문제 {currentIndex + 1} / {totalCount}
                 </CardDescription>
               </div>
-              {remainSeconds !== null ? (
-                <div className="rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--color-foreground)]">
-                  남은 시간 {formatRemain(remainSeconds)}
-                </div>
-              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="status-chip">진행률 {progressPercent}%</span>
+                {remainSeconds !== null ? <span className="status-chip">남은 시간 {formatRemain(remainSeconds)}</span> : null}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-3">
-              <h2 className="text-lg font-semibold leading-7">
+              <h2 className="text-2xl font-semibold leading-9">
                 {currentQuestion.questionNo}. {currentQuestion.stem}
               </h2>
               {currentQuestion.imagePaths.map((imagePath, index) => (
-                <div key={`${currentQuestion.id}-image-${index}`} className="overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)]">
+                <div key={`${currentQuestion.id}-image-${index}`} className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={imagePath} alt={`문항 ${currentQuestion.questionNo} 이미지 ${index + 1}`} className="h-auto w-full" />
                 </div>
@@ -269,16 +268,16 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
                     type="button"
                     onClick={() => chooseAnswer(currentQuestion.id, choice.no)}
                     className={[
-                      "flex w-full items-start gap-3 rounded-md border px-4 py-3 text-left text-sm transition",
+                      "flex w-full items-start gap-3 rounded-2xl border px-4 py-4 text-left text-sm transition",
                       selected
-                        ? "border-[var(--color-primary)] bg-blue-50"
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]"
                         : "border-[var(--color-border)] bg-white hover:bg-[var(--color-surface-muted)]",
                     ].join(" ")}
                   >
-                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] text-xs font-semibold">
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-strong)] text-xs font-semibold text-[var(--color-primary)]">
                       {choice.no}
                     </span>
-                    <span className="leading-6">{choice.text}</span>
+                    <span className="leading-6 text-[15px]">{choice.text}</span>
                   </button>
                 );
               })}
@@ -315,7 +314,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
                   {solvedCount} / {totalCount}
                 </span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-surface-muted)]">
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-muted)]">
                 <div className="h-full bg-[var(--color-primary)]" style={{ width: `${progressPercent}%` }} />
               </div>
             </div>
@@ -331,9 +330,9 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
                     type="button"
                     onClick={() => setCurrentIndex(idx)}
                     className={[
-                      "h-9 rounded-md border text-xs",
+                      "h-10 rounded-xl border text-xs font-semibold",
                       isCurrent
-                        ? "border-[var(--color-primary)] bg-blue-50 text-[var(--color-foreground)]"
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[var(--color-foreground)]"
                         : answered
                           ? "border-[var(--color-border)] bg-[var(--color-surface-muted)]"
                           : "border-[var(--color-border)] bg-white",
@@ -346,7 +345,7 @@ export function ExamSolvingRunner({ examId, examTitle, questions }: ExamSolvingR
             </div>
 
             <Button type="button" className="w-full" onClick={() => setManualSubmitRequested(true)}>
-              제출하기
+              시험 제출하기
             </Button>
 
             <Link href={routes.resultLookup} className="block text-sm text-[var(--color-primary)] hover:underline">
