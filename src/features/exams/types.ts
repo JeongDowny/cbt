@@ -24,3 +24,29 @@ export interface SolveQuestion {
   explanationVideoUrl: string | null;
   choices: SolveChoice[];
 }
+
+export type SubmitIdentityValues = {
+  userName: string;
+  classGroupId: string;
+};
+
+export type WorkImageState = {
+  path: string;
+  publicUrl: string;
+  fileName: string;
+  sizeBytes?: number;
+};
+
+export type WorkImageProcessingState = {
+  questionId: string;
+  stage: "compressing" | "uploading";
+};
+
+export type ExamFlowState = {
+  currentIndex: number;
+  answers: Record<string, number>;
+  solvedCount: number;
+  progressPercent: number;
+  manualSubmitRequested: boolean;
+  submitRequested: boolean;
+};

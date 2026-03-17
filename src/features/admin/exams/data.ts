@@ -1,6 +1,42 @@
 import type { AdminExamFormValues, QuestionForm, SubjectForm } from "@/features/admin/exams/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
+interface ExamFormRow {
+  id: string;
+  exam_year: number;
+  exam_round: number;
+  status: "draft" | "published" | "archived";
+  is_public: boolean;
+  certifications: { name: string } | { name: string }[] | null;
+}
+
+interface ExamSubjectRow {
+  id: string;
+  subject_order: number;
+  name: string;
+  time_limit_minutes: number;
+}
+
+interface ExamQuestionRow {
+  id: string;
+  exam_subject_id: string;
+  question_no: number;
+  stem: string;
+  choice_1: string;
+  choice_2: string;
+  choice_3: string;
+  choice_4: string;
+  correct_answer: 1 | 2 | 3 | 4;
+  explanation: string;
+  explanation_video_url: string | null;
+}
+
+interface ExamQuestionImageRow {
+  question_id: string;
+  image_order: number;
+  image_path: string;
+}
+
 export function buildDefaultSubject(): SubjectForm {
   return {
     name: "",
@@ -28,20 +64,22 @@ export async function getExamFormValuesById(examId: string): Promise<AdminExamFo
     .select("id, exam_year, exam_round, status, is_public, certifications(name)")
     .eq("id", examId)
     .single();
+  const typedExam = exam as ExamFormRow | null;
 
-  if (examError || !exam) {
+  if (examError || !typedExam) {
     return null;
   }
 
-  const certification = Array.isArray(exam.certifications) ? exam.certifications[0] : exam.certifications;
+  const certification = Array.isArray(typedExam.certifications) ? typedExam.certifications[0] : typedExam.certifications;
 
   const { data: subjects } = await supabase
     .from("exam_subjects")
     .select("id, subject_order, name, time_limit_minutes")
     .eq("exam_id", examId)
     .order("subject_order", { ascending: true });
+  const typedSubjects = (subjects ?? []) as ExamSubjectRow[];
 
-  const subjectIds = (subjects ?? []).map((subject) => subject.id);
+  const subjectIds = typedSubjects.map((subject) => subject.id);
   const { data: questions } = subjectIds.length
     ? await supabase
         .from("questions")
@@ -49,8 +87,9 @@ export async function getExamFormValuesById(examId: string): Promise<AdminExamFo
         .in("exam_subject_id", subjectIds)
         .order("question_no", { ascending: true })
     : { data: [] };
+  const typedQuestions = (questions ?? []) as ExamQuestionRow[];
 
-  const questionIds = (questions ?? []).map((question) => question.id);
+  const questionIds = typedQuestions.map((question) => question.id);
   const { data: images } = questionIds.length
     ? await supabase
         .from("question_images")
@@ -58,11 +97,12 @@ export async function getExamFormValuesById(examId: string): Promise<AdminExamFo
         .in("question_id", questionIds)
         .order("image_order", { ascending: true })
     : { data: [] };
+  const typedImages = (images ?? []) as ExamQuestionImageRow[];
 
   const subjectQuestionMap = new Map<string, QuestionForm[]>();
 
-  (questions ?? []).forEach((question) => {
-    const image = (images ?? []).find((item) => item.question_id === question.id && item.image_order === 1);
+  typedQuestions.forEach((question) => {
+    const image = typedImages.find((item) => item.question_id === question.id && item.image_order === 1);
     const existingQuestions = subjectQuestionMap.get(question.exam_subject_id) ?? [];
 
     existingQuestions.push({
@@ -82,7 +122,7 @@ export async function getExamFormValuesById(examId: string): Promise<AdminExamFo
     subjectQuestionMap.set(question.exam_subject_id, existingQuestions);
   });
 
-  const formSubjects: SubjectForm[] = (subjects ?? []).map((subject) => ({
+  const formSubjects: SubjectForm[] = typedSubjects.map((subject) => ({
     name: subject.name,
     timeLimitMinutes: subject.time_limit_minutes,
     questions: subjectQuestionMap.get(subject.id) ?? [],
@@ -90,10 +130,10 @@ export async function getExamFormValuesById(examId: string): Promise<AdminExamFo
 
   return {
     certificationName: certification?.name ?? "",
-    examYear: exam.exam_year,
-    examRound: exam.exam_round,
-    status: exam.status,
-    isPublic: exam.is_public,
+    examYear: typedExam.exam_year,
+    examRound: typedExam.exam_round,
+    status: typedExam.status,
+    isPublic: typedExam.is_public,
     subjects: formSubjects.length ? formSubjects : [],
   };
 }

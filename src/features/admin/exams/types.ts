@@ -1,6 +1,6 @@
 export type ExamStatus = "draft" | "published" | "archived";
 
-export type QuestionChoiceForm = {
+export type ChoiceForm = {
   choiceNo: 1 | 2 | 3 | 4;
   content: string;
 };
@@ -11,7 +11,7 @@ export type QuestionForm = {
   imagePath: string | null;
   explanation: string;
   explanationVideoUrl: string;
-  choices: QuestionChoiceForm[];
+  choices: ChoiceForm[];
 };
 
 export type SubjectForm = {
@@ -28,6 +28,8 @@ export type AdminExamFormValues = {
   isPublic: boolean;
   subjects: SubjectForm[];
 };
+
+export type BasicExamFields = Pick<AdminExamFormValues, "certificationName" | "examYear" | "examRound" | "status" | "isPublic">;
 
 export type SaveExamResult = {
   examId: string;
